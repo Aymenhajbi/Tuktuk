@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model TrendSignal {
+  id             String   @id @default(cuid())
+  source         String
+  keyword        String
+  trendVelocity  Float
+  engagementRate Float?
+  capturedAt     DateTime @default(now())
+}
+
+model CompetitorStore {
+  id               String   @id @default(cuid())
+  domain           String   @unique
+  platform         String   @default("shopify")
+  estimatedTraffic Int?
+  trustpilotScore  Float?
+  createdAt        DateTime @default(now())
+  priceHistory     PriceHistory[]
+}
+
+model ViralProduct {
+  id                String   @id @default(cuid())
+  productName       String
+  tiktokViews24h    Int
+  hashtag           String?
+  viralScore        Float
+  sentimentScore    Float?
+  firstDetectedAt   DateTime @default(now())
+}
+
+model WinningScore {
+  id                   String   @id @default(cuid())
+  productRef           String
+  trendVelocity        Float
+  engagementRate       Float
+  adFrequency          Float
+  marginPotential      Float
+  supplierScore        Float
+  lowCompetitionFactor Float
+  sentimentScore       Float
+  finalScore           Float
+  createdAt            DateTime @default(now())
+}
+
+model PriceHistory {
+  id               String          @id @default(cuid())
+  competitorStore  CompetitorStore @relation(fields: [competitorStoreId], references: [id])
+  competitorStoreId String
+  productName      String
+  oldPrice         Float
+  newPrice         Float
+  capturedAt       DateTime        @default(now())
+}
+
+model EngagementMetric {
+  id             String   @id @default(cuid())
+  productRef     String
+  likes          Int
+  comments       Int
+  shares         Int
+  conversionRate Float?
+  capturedAt     DateTime @default(now())
+}
+
+model AdCreative {
+  id               String   @id @default(cuid())
+  platform         String
+  productRef       String
+  hook             String
+  script           String
+  ctr              Float?
+  createdAt        DateTime @default(now())
+}
+
+model CampaignSimulation {
+  id               String   @id @default(cuid())
+  productRef       String
+  expectedCpa      Float
+  expectedRoas     Float
+  expectedMargin   Float
+  budget           Float
+  simulatedAt      DateTime @default(now())
+}
+
+model ScrapingJob {
+  id            String   @id @default(cuid())
+  jobType       String
+  status        String   @default("pending")
+  payload       Json
+  retries       Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model ProxyPool {
+  id               String   @id @default(cuid())
+  proxyUrl         String   @unique
+  healthScore      Float    @default(100)
+  requestCount     Int      @default(0)
+  isActive         Boolean  @default(true)
+  lastCheckedAt    DateTime?
+}
+
+model MarketSaturationMetric {
+  id                    String   @id @default(cuid())
+  productRef            String
+  activeAdsCount        Int
+  competitorStoresCount Int
+  priceCompression      Float
+  saturationIndex       Float
+  createdAt             DateTime @default(now())
+}
+
+model CreativeFatigueMetric {
+  id                 String   @id @default(cuid())
+  adCreativeId       String
+  engagementDrop     Float
+  repetitionRate     Float
+  sentimentDowntrend Float
+  fatigueIndex       Float
+  createdAt          DateTime @default(now())
+}
+
+model SupplierRiskMetric {
+  id                String   @id @default(cuid())
+  supplierRef       String
+  deliveryDelayRate Float
+  disputeRate       Float
+  reviewPenalty     Float
+  stockVolatility   Float
+  riskIndex         Float
+  createdAt         DateTime @default(now())
+}
+
+model ABTestExperiment {
+  id            String   @id @default(cuid())
+  productRef    String
+  budgetPerHook Float
+  hooksJson     Json
+  winnerHook    String?
+  status        String   @default("running")
+  createdAt     DateTime @default(now())
+}
