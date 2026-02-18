@@ -9,7 +9,7 @@ export class WinningEngineController {
   constructor(private readonly service: WinningEngineService) {}
 
   @Post('score')
-  score(@Body() dto: ScoreProductDto) {
+  async score(@Body() dto: ScoreProductDto) {
     return this.service.calculateWinningScore(dto);
   }
 }

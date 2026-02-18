@@ -1,4 +1,4 @@
-import { IsNumber, IsString, Max, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class ProcessSignalDto {
   @IsString()
@@ -6,6 +6,14 @@ export class ProcessSignalDto {
 
   @IsString()
   keyword!: string;
+
+  @IsString()
+  @IsOptional()
+  source?: string;
+
+  @IsString()
+  @IsOptional()
+  productName?: string;
 
   @IsNumber() @Min(0) @Max(100)
   trendVelocity!: number;

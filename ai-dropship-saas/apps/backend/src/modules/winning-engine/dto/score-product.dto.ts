@@ -1,8 +1,20 @@
-import { IsNumber, IsString, Max, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class ScoreProductDto {
   @IsString()
   productId!: string;
+
+  @IsString()
+  @IsOptional()
+  productName?: string;
+
+  @IsString()
+  @IsOptional()
+  source?: string;
+
+  @IsString()
+  @IsOptional()
+  keyword?: string;
 
   @IsNumber() @Min(0) @Max(100)
   trendVelocity!: number;

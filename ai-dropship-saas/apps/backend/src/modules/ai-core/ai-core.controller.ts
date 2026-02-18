@@ -8,7 +8,7 @@ export class AiCoreController {
   constructor(private readonly service: AiCoreService) {}
 
   @Post('generate-assets')
-  generate(@Body() body: { productName: string }) {
+  async generate(@Body() body: { productName: string }) {
     return this.service.generateMarketingAssets(body.productName);
   }
 

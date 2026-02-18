@@ -8,7 +8,7 @@ export class AutoPricingController {
   constructor(private readonly service: AutoPricingService) {}
 
   @Post('optimize')
-  optimize(@Body() body: { cost: number; marketAverage: number; targetMarginPct: number; estimatedCpa: number }) {
+  async optimize(@Body() body: { cost: number; marketAverage: number; targetMarginPct: number; estimatedCpa: number }) {
     return this.service.optimize(body);
   }
 }
