@@ -1,12 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ScoreProductDto } from './dto/score-product.dto';
 import { WinningRepository } from './winning.repository';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class WinningEngineService {
   constructor(private readonly repository: WinningRepository) {}
 
-  async calculateWinningScore(input: ScoreProductDto) {
+  private assertScoreRange(score: number) {
+    if (score < 0 || score > 100) {
+      throw new BadRequestException('WinningScore.score must be between 0 and 100');
+    }
+  }
+
+  buildWinningPayload(input: ScoreProductDto) {
     const score =
       input.trendVelocity * 0.25 +
       input.engagementRate * 0.15 +
@@ -16,7 +23,10 @@ export class WinningEngineService {
       input.lowCompetitionFactor * 0.1 +
       input.sentimentScore * 0.1;
 
-    const persisted = await this.repository.createTrendAndWinningScore({
+    const normalizedScore = Number(score.toFixed(2));
+    this.assertScoreRange(normalizedScore);
+
+    return {
       productExternalId: input.productId,
       productName: input.productName ?? input.productId,
       source: input.source ?? 'unknown',
@@ -29,11 +39,17 @@ export class WinningEngineService {
       supplierScore: input.supplierScore,
       lowCompetitionFactor: input.lowCompetitionFactor,
       sentimentScore: input.sentimentScore,
-      score: Number(score.toFixed(2)),
-    });
+      score: normalizedScore,
+      decision: normalizedScore >= 70 ? 'IMPORT_SUGGESTED' : 'WATCHLIST',
+    };
+  }
+
+  async calculateWinningScore(input: ScoreProductDto, client?: Prisma.TransactionClient) {
+    const payload = this.buildWinningPayload(input);
+    const persisted = await this.repository.createTrendAndWinningScore(payload, client);
 
     return {
-      decision: score >= 70 ? 'IMPORT_SUGGESTED' : 'WATCHLIST',
+      decision: payload.decision,
       snapshot: persisted.snapshot,
       trendSignal: persisted.trendSignal,
       winningScore: persisted.winningScore,

@@ -20,29 +20,29 @@ enum CampaignTestStatus {
 }
 
 model ProductSnapshot {
-  id           String         @id @default(uuid())
-  externalId   String         @unique
-  productName  String
-  source       String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  trendSignals TrendSignal[]
+  id            String         @id @default(uuid())
+  externalId    String         @unique
+  productName   String
+  source        String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  trendSignals  TrendSignal[]
   campaignTests CampaignTest[]
 }
 
 model TrendSignal {
-  id               String                 @id @default(uuid())
-  source           String
-  keyword          String
-  trendVelocity    Float
-  engagementRate   Float?
-  competitionLevel Float?
+  id                String                 @id @default(uuid())
+  source            String
+  keyword           String
+  trendVelocity     Float
+  engagementRate    Float?
+  competitionLevel  Float?
   productSnapshotId String
-  productSnapshot  ProductSnapshot        @relation(fields: [productSnapshotId], references: [id])
-  winningScore     WinningScore?
-  decisions        OrchestratorDecision[]
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
+  productSnapshot   ProductSnapshot        @relation(fields: [productSnapshotId], references: [id])
+  winningScore      WinningScore?
+  decisions         OrchestratorDecision[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 
   @@index([createdAt])
   @@unique([source, keyword, productSnapshotId])
@@ -89,11 +89,22 @@ model CampaignTest {
   createdAt    DateTime           @default(now())
 }
 
-model SystemEvent {
+model IdempotencyKey {
   id        String   @id @default(uuid())
-  type      String
-  payload   Json
+  key       String   @unique
+  context   String
   createdAt DateTime @default(now())
+}
+
+model SystemEvent {
+  id                  String   @id @default(uuid())
+  type                String
+  actionType          String?
+  correlationId       String
+  executionDurationMs Int
+  failure             Boolean  @default(false)
+  payload             Json
+  createdAt           DateTime @default(now())
 }
 
 model CompetitorStore {

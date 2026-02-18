@@ -8,6 +8,9 @@ export class ProcessSignalDto {
   keyword!: string;
 
   @IsString()
+  idempotencyKey!: string;
+
+  @IsString()
   @IsOptional()
   source?: string;
 
