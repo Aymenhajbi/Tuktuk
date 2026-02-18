@@ -187,10 +187,32 @@ export class OrchestratorService {
       const assets = await this.aiCore.generateMarketingAssets(dto.keyword);
 
       await this.queueService.enqueueAiScoring({
-        productId: dto.productId,
-        keyword: dto.keyword,
-        winningScore: result.winning.winningScore.score,
-        successProbability7d,
+        idempotencyKey: `${dto.idempotencyKey}:ai`,
+        correlationId: dto.idempotencyKey,
+        traceId: dto.idempotencyKey,
+        tenantId: 'default-tenant',
+        payload: {
+          productId: dto.productId,
+          keyword: dto.keyword,
+          trendSignalId: result.winning.trendSignal.id,
+          productSnapshotId: result.winning.snapshot.id,
+          trendVelocity: dto.trendVelocity,
+          winningScore: result.winning.winningScore.score,
+          successProbability7d,
+        },
+      });
+
+      await this.queueService.enqueueCampaignSimulation({
+        idempotencyKey: `${dto.idempotencyKey}:campaign`,
+        correlationId: dto.idempotencyKey,
+        traceId: dto.idempotencyKey,
+        tenantId: 'default-tenant',
+        payload: {
+          campaignSimulationId: result.decision.id,
+          productRef: dto.productId,
+          expectedRoas: pricingPlan.simulatedRoas,
+          expectedCpa: 11,
+        },
       });
 
       return { ...result, pricingPlan, assets };

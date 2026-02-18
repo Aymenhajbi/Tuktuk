@@ -21,34 +21,29 @@ ai-dropship-saas
     /terraform
 ```
 
-## Backend modules clés
-- `winning-engine`: scoring composite + seuil d'import
-- `competitor-intelligence`: snapshot concurrent + indexation Elasticsearch
-- `tiktok-analyzer`: score viralité + OCR/frame/transcript flags
-- `ai-core`: génération marketing + prédiction
-- `auto-pricing`: marge/ROAS/prix dynamique
-- `orchestrator`: cerveau de décision (import auto, pricing, campagne test)
+## Sprint 2 hardening livré
+- BullMQ queues: `ai-scoring-queue`, `scraper-jobs-queue`, `campaign-simulation-queue`
+- DLQ dédiées pour chaque queue
+- Idempotency + queue state persistence (`QueueJobState`)
+- Event bus versionné et type-safe (V1 contracts + validation)
+- Workers dédiés:
+  - `apps/ai-engine/src/workers/ai-scoring.worker.ts`
+  - `apps/scraper-service/src/workers/scraper.worker.ts`
+  - `apps/orchestrator/src/workers/orchestrator.worker.ts`
+- Logging JSON + métriques Prometheus (`queue_length`, `queue_processing_time_ms`)
 
-## Async AI pipeline
-- Queue BullMQ `ai-scoring`
-- Retry exponentiel + DLQ `ai-scoring-dlq`
-- Worker `apps/ai-engine` asynchrone
-- Cache embeddings (in-memory baseline, Redis-ready)
+## Local setup
+```bash
+cp .env.example .env
+./scripts/bootstrap.sh
+```
 
-## Anti-block scraping
-- Proxy rotation + health score
-- Fingerprint masking
-- Rate adaptation
-- CAPTCHA fallback strategy
-- Priority scraping queue
+## Run queues and workers
+```bash
+npm run queues:start
+npm run workers:start
+```
 
-## Frontend SaaS routes
-- `/dashboard`
-- `/winning-lab`
-- `/competitor-radar`
-- `/trend-monitor`
-- `/profit-simulator`
-- `/ai-campaign-studio`
-- `/settings`
-- `/billing`
-- `/auth`
+## Backend docs
+- Swagger: `/api/docs`
+- Global Prisma error filter activé

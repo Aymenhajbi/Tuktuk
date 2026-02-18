@@ -10,6 +10,9 @@
     "build": "npm run build --workspace apps/backend",
     "lint": "npm run lint --workspace apps/backend",
     "test": "npm run test --workspace apps/backend",
-    "prisma:generate": "npm run prisma:generate --workspace apps/backend"
+    "prisma:generate": "npm run prisma:generate --workspace apps/backend",
+    "queues:start": "node apps/backend/src/queue/start-queues.js",
+    "workers:start": "node scripts/start-workers.js",
+    "test:workers": "echo \"run worker tests from backend jest config when deps installed\""
   }
 }

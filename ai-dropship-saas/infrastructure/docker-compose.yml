@@ -8,9 +8,20 @@ services:
       POSTGRES_PASSWORD: postgres
     ports: ['5432:5432']
 
-  redis:
+  redis-node-1:
     image: redis:7
+    command: ["redis-server", "--port", "6379", "--appendonly", "yes"]
     ports: ['6379:6379']
+
+  redis-node-2:
+    image: redis:7
+    command: ["redis-server", "--port", "6380", "--appendonly", "yes"]
+    ports: ['6380:6380']
+
+  redis-node-3:
+    image: redis:7
+    command: ["redis-server", "--port", "6381", "--appendonly", "yes"]
+    ports: ['6381:6381']
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.0

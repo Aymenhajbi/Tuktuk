@@ -3,10 +3,12 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "workers:start": "node src/workers/ai-scoring.worker.js"
   },
   "dependencies": {
     "bullmq": "^5.0.0",
-    "ioredis": "^5.4.1"
+    "ioredis": "^5.4.1",
+    "@prisma/client": "^5.0.0"
   }
 }

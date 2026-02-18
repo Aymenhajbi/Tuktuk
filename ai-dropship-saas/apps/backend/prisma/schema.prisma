@@ -96,6 +96,26 @@ model IdempotencyKey {
   createdAt DateTime @default(now())
 }
 
+
+model QueueJobState {
+  id             String   @id @default(uuid())
+  queueName      String
+  idempotencyKey String   @unique
+  correlationId  String
+  traceId        String
+  tenantId       String
+  status         String
+  retryCount     Int      @default(0)
+  failureCount   Int      @default(0)
+  lastError      String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([queueName, status])
+}
+
 model SystemEvent {
   id                  String   @id @default(uuid())
   type                String
