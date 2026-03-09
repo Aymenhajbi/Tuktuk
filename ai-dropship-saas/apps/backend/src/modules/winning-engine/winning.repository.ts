@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, PrismaClient, TrendSignal, WinningScore } from '@prisma/client';
+import { Prisma, TrendSignal, WinningScore, ProductSnapshot } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 type DbClient = PrismaService | Prisma.TransactionClient;

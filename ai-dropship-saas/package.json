@@ -14,5 +14,16 @@
     "queues:start": "node apps/backend/src/queue/start-queues.js",
     "workers:start": "node scripts/start-workers.js",
     "test:workers": "echo \"run worker tests from backend jest config when deps installed\""
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0",
+    "prisma": "^7.4.0",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.4.0"
   }
 }
