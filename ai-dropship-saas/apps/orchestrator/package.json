@@ -1,0 +1,14 @@
+{
+  "name": "orchestrator-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node src/index.js",
+    "workers:start": "node src/workers/orchestrator.worker.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.0.0",
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.4.1"
+  }
+}

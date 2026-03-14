@@ -1,0 +1,13 @@
+import { defineConfig } from '@prisma/cli'
+import { PrismaClient } from '@prisma/client'
+
+export default defineConfig({
+  datasource: {
+    url: process.env.DATABASE_URL, // récupère ta DB
+    provider: 'postgresql',
+  },
+  migrations: {
+    // si tu veux les seeds via migrate
+    seed: 'node --loader ts-node/esm ./prisma/seed.ts',
+  },
+})

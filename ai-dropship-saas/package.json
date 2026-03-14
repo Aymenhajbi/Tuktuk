@@ -1,0 +1,29 @@
+{
+  "name": "ai-dropship-saas",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/backend",
+    "build": "npm run build --workspace apps/backend",
+    "lint": "npm run lint --workspace apps/backend",
+    "test": "npm run test --workspace apps/backend",
+    "prisma:generate": "npm run prisma:generate --workspace apps/backend",
+    "queues:start": "node apps/backend/src/queue/start-queues.js",
+    "workers:start": "node scripts/start-workers.js",
+    "test:workers": "echo \"run worker tests from backend jest config when deps installed\""
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0",
+    "prisma": "^7.4.0",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.4.0"
+  }
+}
