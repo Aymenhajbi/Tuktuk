@@ -1,0 +1,168 @@
+{
+  "info": {
+    "name": "AI Dropship SaaS API",
+    "description": "Complete API collection for the AI Dropship SaaS platform. Import the `local.postman_environment.json` environment alongside this collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [],
+  "item": [
+    {
+      "name": "Winning Engine",
+      "item": [
+        {
+          "name": "Score Product",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/modules/winning-engine/score",
+              "host": ["{{base_url}}"],
+              "path": ["modules", "winning-engine", "score"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"prod-001\",\n  \"productName\": \"Wireless Earbuds Pro\",\n  \"source\": \"tiktok\",\n  \"keyword\": \"earbuds\",\n  \"trendVelocity\": 82,\n  \"engagementRate\": 74,\n  \"adFrequency\": 55,\n  \"marginPotential\": 68,\n  \"supplierScore\": 90,\n  \"lowCompetitionFactor\": 60,\n  \"sentimentScore\": 85\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Calculates a composite winning score for a product across 7 factors (trend velocity, engagement, ad frequency, margin, supplier, competition, sentiment). Returns a persisted WinningScore record."
+          }
+        }
+      ]
+    },
+    {
+      "name": "AI Core",
+      "item": [
+        {
+          "name": "Generate Marketing Assets",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/modules/ai-core/generate-assets",
+              "host": ["{{base_url}}"],
+              "path": ["modules", "ai-core", "generate-assets"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productName\": \"Wireless Earbuds Pro\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Uses OpenAI to generate ad copy and marketing assets for a given product name. Requires a valid OPENAI_API_KEY in the backend .env."
+          }
+        },
+        {
+          "name": "Predict Trend",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/modules/ai-core/predict-trend",
+              "host": ["{{base_url}}"],
+              "path": ["modules", "ai-core", "predict-trend"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trendVelocity\": 82,\n  \"competitionDensity\": 35\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Predicts whether a trend is worth pursuing based on velocity and competition density. Returns a viability score and recommendation."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Competitor Intelligence",
+      "item": [
+        {
+          "name": "Scan Competitor Store",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/modules/competitor-intelligence/scan?storeUrl=https://example-store.com",
+              "host": ["{{base_url}}"],
+              "path": ["modules", "competitor-intelligence", "scan"],
+              "query": [
+                {
+                  "key": "storeUrl",
+                  "value": "https://example-store.com",
+                  "description": "Full URL of the competitor store to scan"
+                }
+              ]
+            },
+            "description": "Scrapes and indexes a competitor store. Returns a snapshot of products, pricing, and engagement data, and indexes it to Elasticsearch. Requires ELASTICSEARCH_URL to be configured."
+          }
+        }
+      ]
+    },
+    {
+      "name": "TikTok Analyzer",
+      "item": [
+        {
+          "name": "Score Viral Potential",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/modules/tiktok-analyzer/score-viral",
+              "host": ["{{base_url}}"],
+              "path": ["modules", "tiktok-analyzer", "score-viral"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"views24h\": 150000,\n  \"comments\": 3200,\n  \"shares\": 8500\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Scores a TikTok product's viral potential based on 24h views, comment count, and share count. Returns a virality score and trend signal."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auto Pricing",
+      "item": [
+        {
+          "name": "Optimize Price",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/modules/auto-pricing/optimize",
+              "host": ["{{base_url}}"],
+              "path": ["modules", "auto-pricing", "optimize"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cost\": 12.50,\n  \"marketAverage\": 34.99,\n  \"targetMarginPct\": 40,\n  \"estimatedCpa\": 8.00\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Calculates the optimal selling price given product cost, market average, target margin percentage, and estimated cost-per-acquisition. Returns recommended price and projected margin."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orchestrator",
+      "item": [
+        {
+          "name": "Process Trend Signal",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/modules/orchestrator/process-signal",
+              "host": ["{{base_url}}"],
+              "path": ["modules", "orchestrator", "process-signal"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"prod-001\",\n  \"keyword\": \"wireless earbuds\",\n  \"idempotencyKey\": \"signal-prod-001-20260314\",\n  \"source\": \"tiktok\",\n  \"productName\": \"Wireless Earbuds Pro\",\n  \"trendVelocity\": 82,\n  \"engagementRate\": 74,\n  \"adFrequency\": 55,\n  \"marginPotential\": 68,\n  \"supplierScore\": 90,\n  \"lowCompetitionFactor\": 60,\n  \"sentimentScore\": 85,\n  \"activeAdsCount\": 12,\n  \"competitorStoresCount\": 5,\n  \"priceCompression\": 20\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Master orchestration endpoint. Processes a full trend signal through the winning engine, persists results, and dispatches jobs to ai-scoring-queue and campaign-simulation-queue. Uses idempotencyKey to prevent duplicate processing. Action types: IMPORT | SKIP | TEST_CAMPAIGN."
+          }
+        }
+      ]
+    }
+  ]
+}

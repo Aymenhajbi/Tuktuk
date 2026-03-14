@@ -1,0 +1,23 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dumb-init and OpenSSL (required by Prisma on Alpine)
+RUN apk add --no-cache dumb-init openssl openssl-dev libc6-compat
+
+# Copy root package files
+COPY package*.json ./
+
+# Copy backend app and shared packages
+COPY apps/backend ./apps/backend
+COPY packages ./packages
+
+# Install all dependencies and regenerate Prisma client for this platform
+RUN npm ci && npm run prisma:generate --workspace apps/backend
+
+EXPOSE 3001
+
+ENTRYPOINT ["dumb-init", "--"]
+
+# Run nest from backend directory so it finds tsconfig.json and nest-cli.json
+CMD ["sh", "-c", "cd apps/backend && npx nest start --watch"]

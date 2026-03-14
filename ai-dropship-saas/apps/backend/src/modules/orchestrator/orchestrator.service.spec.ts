@@ -5,7 +5,7 @@ describe('OrchestratorService', () => {
   const winningEngine = { calculateWinningScore: jest.fn() };
   const aiCore = { generateMarketingAssets: jest.fn() };
   const autoPricing = { optimize: jest.fn() };
-  const queue = { enqueueAiScoring: jest.fn() };
+  const queue = { enqueueAiScoring: jest.fn(), enqueueCampaignSimulation: jest.fn() };
   const repository = {
     findIdempotencyKey: jest.fn(),
     createIdempotencyKey: jest.fn(),
@@ -26,7 +26,7 @@ describe('OrchestratorService', () => {
     repository as any,
   );
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => jest.resetAllMocks());
 
   const dto: any = {
     idempotencyKey: 'idem-1',

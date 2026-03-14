@@ -1,0 +1,219 @@
+version: '3.8'
+
+services:
+  # Database
+  tuktuk-postgres:
+    image: postgres:16-alpine
+    container_name: tuktuk-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dropship}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tuktuk-network
+    restart: unless-stopped
+
+  # Redis Cache & Queue Broker
+  tuktuk-redis:
+    image: redis:7-alpine
+    container_name: tuktuk-redis
+    command: redis-server --appendonly yes
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tuktuk-network
+    restart: unless-stopped
+
+  # NestJS Backend API
+  tuktuk-backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile.dev
+    container_name: tuktuk-backend
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3001}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@tuktuk-postgres:5432/${POSTGRES_DB:-dropship}
+      REDIS_URL: redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}tuktuk-redis:6379
+      REDIS_HOST: tuktuk-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://localhost:9200}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key}
+      QUEUE_ATTEMPTS: ${QUEUE_ATTEMPTS:-5}
+      QUEUE_BACKOFF_DELAY_MS: ${QUEUE_BACKOFF_DELAY_MS:-1000}
+    ports:
+      - '3001:3001'
+    volumes:
+      - ./apps/backend/src:/app/apps/backend/src
+      - ./apps/backend/prisma:/app/apps/backend/prisma
+    depends_on:
+      tuktuk-postgres:
+        condition: service_healthy
+      tuktuk-redis:
+        condition: service_healthy
+    networks:
+      - tuktuk-network
+    restart: unless-stopped
+    command: sh -c "cd /app/apps/backend && /app/node_modules/.bin/nest start --watch"
+
+  # Next.js Admin Dashboard
+  tuktuk-admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile.dev
+    container_name: tuktuk-admin
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3002
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_API_BASE_URL: http://tuktuk-backend:3001
+    ports:
+      - '3002:3002'
+    volumes:
+      - ./apps/admin/app:/app/apps/admin/app
+      - ./apps/admin/components:/app/apps/admin/components
+      - ./apps/admin/lib:/app/apps/admin/lib
+    depends_on:
+      - tuktuk-backend
+    networks:
+      - tuktuk-network
+    restart: unless-stopped
+    command: npm run dev --workspace apps/admin
+
+  # Next.js Storefront Marketplace
+  tuktuk-storefront:
+    build:
+      context: .
+      dockerfile: apps/storefront/Dockerfile.dev
+      args:
+        - SERVICE_NAME=storefront
+    container_name: tuktuk-storefront
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_API_BASE_URL: http://tuktuk-backend:3001
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./apps/storefront/app:/app/apps/storefront/app
+      - ./apps/storefront/public:/app/apps/storefront/public
+      - ./apps/storefront/.next:/app/apps/storefront/.next
+    depends_on:
+      - tuktuk-backend
+    networks:
+      - tuktuk-network
+    restart: unless-stopped
+    command: npm run dev --workspace apps/storefront
+
+  # AI Engine Worker
+  tuktuk-ai-engine:
+    build:
+      context: .
+      dockerfile: apps/ai-engine/Dockerfile.dev
+    container_name: tuktuk-ai-engine
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      REDIS_URL: redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}tuktuk-redis:6379
+      REDIS_HOST: tuktuk-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@tuktuk-postgres:5432/${POSTGRES_DB:-dropship}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      QUEUE_ATTEMPTS: ${QUEUE_ATTEMPTS:-5}
+      QUEUE_BACKOFF_DELAY_MS: ${QUEUE_BACKOFF_DELAY_MS:-1000}
+    volumes:
+      - ./apps/ai-engine/src:/app/apps/ai-engine/src
+    depends_on:
+      tuktuk-postgres:
+        condition: service_healthy
+      tuktuk-redis:
+        condition: service_healthy
+    networks:
+      - tuktuk-network
+    restart: unless-stopped
+    command: npm run workers:start --workspace apps/ai-engine
+
+  # Scraper Service Worker
+  tuktuk-scraper:
+    build:
+      context: .
+      dockerfile: apps/scraper-service/Dockerfile.dev
+    container_name: tuktuk-scraper
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      REDIS_URL: redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}tuktuk-redis:6379
+      REDIS_HOST: tuktuk-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@tuktuk-postgres:5432/${POSTGRES_DB:-dropship}
+      TIKTOK_SCRAPER_API_KEY: ${TIKTOK_SCRAPER_API_KEY:-}
+      SIMILARWEB_API_KEY: ${SIMILARWEB_API_KEY:-}
+      QUEUE_ATTEMPTS: ${QUEUE_ATTEMPTS:-5}
+      QUEUE_BACKOFF_DELAY_MS: ${QUEUE_BACKOFF_DELAY_MS:-1000}
+    volumes:
+      - ./apps/scraper-service/src:/app/apps/scraper-service/src
+    depends_on:
+      tuktuk-postgres:
+        condition: service_healthy
+      tuktuk-redis:
+        condition: service_healthy
+    networks:
+      - tuktuk-network
+    restart: unless-stopped
+    command: npm run workers:start --workspace apps/scraper-service
+
+  # Orchestrator Worker
+  tuktuk-orchestrator:
+    build:
+      context: .
+      dockerfile: apps/orchestrator/Dockerfile.dev
+    container_name: tuktuk-orchestrator
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      REDIS_URL: redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}tuktuk-redis:6379
+      REDIS_HOST: tuktuk-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@tuktuk-postgres:5432/${POSTGRES_DB:-dropship}
+      QUEUE_ATTEMPTS: ${QUEUE_ATTEMPTS:-5}
+      QUEUE_BACKOFF_DELAY_MS: ${QUEUE_BACKOFF_DELAY_MS:-1000}
+    volumes:
+      - ./apps/orchestrator/src:/app/apps/orchestrator/src
+    depends_on:
+      tuktuk-postgres:
+        condition: service_healthy
+      tuktuk-redis:
+        condition: service_healthy
+    networks:
+      - tuktuk-network
+    restart: unless-stopped
+    command: npm run workers:start --workspace orchestrator-app
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  tuktuk-network:
+    driver: bridge

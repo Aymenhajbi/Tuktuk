@@ -36,7 +36,7 @@ describe('Orchestrator Integration', () => {
         competitorStoresCount: 10,
         priceCompression: 10,
       })
-      .expect((res) => {
+      .expect((res: { status: number }) => {
         expect([200, 201]).toContain(res.status);
       });
   });

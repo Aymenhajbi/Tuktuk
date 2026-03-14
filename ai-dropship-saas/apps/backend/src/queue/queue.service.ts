@@ -281,6 +281,31 @@ export class QueueService implements OnModuleDestroy {
     );
   }
 
+  async getQueueStatus() {
+    const [ai, scraper, campaign, aiDlq, scraperDlq, campaignDlq] = await Promise.all([
+      this.aiQueue.getJobCounts(),
+      this.scraperQueue.getJobCounts(),
+      this.campaignQueue.getJobCounts(),
+      this.aiDlq.getJobCounts(),
+      this.scraperDlq.getJobCounts(),
+      this.campaignDlq.getJobCounts(),
+    ]);
+
+    return {
+      queues: [
+        { name: QUEUES.AI_SCORING, ...ai },
+        { name: QUEUES.SCRAPER_JOBS, ...scraper },
+        { name: QUEUES.CAMPAIGN_SIMULATION, ...campaign },
+      ],
+      dlqs: [
+        { name: QUEUES.AI_SCORING_DLQ, ...aiDlq },
+        { name: QUEUES.SCRAPER_JOBS_DLQ, ...scraperDlq },
+        { name: QUEUES.CAMPAIGN_SIMULATION_DLQ, ...campaignDlq },
+      ],
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   async onModuleDestroy() {
     await Promise.all(
       Object.values(this.queueEvents).map((event) => event.close()),

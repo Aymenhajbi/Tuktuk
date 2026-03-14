@@ -1,8 +1,9 @@
 {
+  "sourceRoot": "apps/backend/src",
+  "entryFile": "apps/backend/src/main",
   "compilerOptions": {
     "deleteOutDir": true,
     "assets": [],
-    "webpack": false,
-    "type": "module"
+    "webpack": false
   }
 }

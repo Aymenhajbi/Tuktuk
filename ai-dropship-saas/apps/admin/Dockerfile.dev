@@ -1,0 +1,23 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dumb-init
+RUN apk add --no-cache dumb-init
+
+# Copy package files
+COPY package*.json ./
+
+# Copy source
+COPY apps/admin ./apps/admin
+COPY packages ./packages
+
+# Install dependencies
+RUN npm ci
+
+EXPOSE 3002
+
+ENTRYPOINT ["dumb-init", "--"]
+
+# Development command (with hot reload)
+CMD ["npm", "run", "dev", "--workspace", "apps/admin"]
