@@ -1,4 +1,4 @@
-const BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 export interface AdminUser { id: string; email: string; name: string; role: string }
 
