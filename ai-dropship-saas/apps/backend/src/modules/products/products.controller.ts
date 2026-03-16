@@ -1,42 +1,54 @@
 import { Controller, Get, Post, Put, Delete, Param, Body, Query } from '@nestjs/common';
-import { ApiTags, ApiQuery } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { GetUser } from '../auth/decorators/get-user.decorator';
 
 @ApiTags('products')
 @Controller()
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
+  @Public()
   @Get('products')
   findAll(@Query() query: Record<string, unknown>) {
     return this.productsService.findAll(query as never);
   }
 
+  @Public()
   @Get('products/featured')
   getFeatured() { return this.productsService.getFeatured(); }
 
+  @Public()
   @Get('products/trending')
   getTrending() { return this.productsService.getTrending(); }
 
+  @Public()
   @Get('products/:id')
   findOne(@Param('id') id: string) { return this.productsService.findOne(id); }
 
+  @Roles('ADMIN')
   @Post('products')
   create(@Body() dto: CreateProductDto) { return this.productsService.create(dto); }
 
+  @Roles('ADMIN')
   @Put('products/:id')
   update(@Param('id') id: string, @Body() dto: Partial<CreateProductDto>) {
     return this.productsService.update(id, dto);
   }
 
+  @Roles('ADMIN')
   @Delete('products/:id')
   delete(@Param('id') id: string) { return this.productsService.delete(id); }
 
+  @Public()
   @Get('categories')
   findCategories() { return this.productsService.findCategories(); }
 
+  @Roles('ADMIN')
   @Post('categories')
   createCategory(@Body() body: { name: string; slug: string; image?: string }) {
     return this.productsService.createCategory(body.name, body.slug, body.image);
@@ -51,13 +63,20 @@ export class ProductsController {
   }
 
   @Post('orders')
-  createOrder(@Body() dto: CreateOrderDto) { return this.productsService.createOrder(dto); }
-
-  @Get('orders')
-  getOrders(@Query('customerId') customerId: string) {
-    return this.productsService.getOrders(customerId);
+  createOrder(
+    @Body() dto: CreateOrderDto,
+    @GetUser() user: { sub: string; email: string },
+  ) {
+    return this.productsService.createOrder(dto, user.sub, user.email);
   }
 
+  @Get('orders')
+  getOrders(@GetUser() user: { sub: string; role: string }, @Query('customerId') customerId?: string) {
+    const userId = user.role === 'ADMIN' ? undefined : user.sub;
+    return this.productsService.getOrders(userId, customerId);
+  }
+
+  @Public()
   @Post('seed')
   seed() { return this.productsService.seedDemo(); }
 }

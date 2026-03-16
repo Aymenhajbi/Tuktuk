@@ -30,9 +30,12 @@
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.3",
-    "swagger-ui-express": "^5.0.0"
+    "swagger-ui-express": "^5.0.0",
+    "@nestjs/jwt": "^10.2.0",
+    "bcryptjs": "^2.4.3"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@nestjs/cli": "^10.0.0",
     "@nestjs/testing": "^10.0.0",
     "@prisma/dev": "^0.20.0",

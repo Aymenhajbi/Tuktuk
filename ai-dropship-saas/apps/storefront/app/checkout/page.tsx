@@ -6,8 +6,11 @@ import Link from 'next/link';
 import { useCart } from '../../lib/store';
 import { api } from '../../lib/api';
 import { CheckCircle, CreditCard, Truck } from 'lucide-react';
+import RequireAuth from '../../components/RequireAuth';
+import { useAuth } from '../../lib/auth';
 
-export default function CheckoutPage() {
+function CheckoutContent() {
+  const { user } = useAuth();
   const { items, total, count, clear } = useCart();
   const router = useRouter();
   const cartTotal = total();
@@ -25,7 +28,6 @@ export default function CheckoutPage() {
     setLoading(true);
     try {
       const order = await api.createOrder({
-        customerId: form.email,
         address: `${form.address}, ${form.city}, ${form.country} ${form.zip}`,
         items: items.map(i => ({ productId: i.product.id, quantity: i.quantity })),
       });
@@ -136,4 +138,8 @@ export default function CheckoutPage() {
       </div>
     </div>
   );
+}
+
+export default function CheckoutPage() {
+  return <RequireAuth><CheckoutContent /></RequireAuth>;
 }

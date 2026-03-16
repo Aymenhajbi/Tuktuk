@@ -1,8 +1,10 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CompetitorIntelligenceService } from './competitor-intelligence.service';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('competitor-intelligence')
+@Roles('ADMIN')
 @Controller('modules/competitor-intelligence')
 export class CompetitorIntelligenceController {
   constructor(private readonly service: CompetitorIntelligenceService) {}

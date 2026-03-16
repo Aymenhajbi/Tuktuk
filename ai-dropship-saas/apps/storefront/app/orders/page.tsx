@@ -1,9 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { api, type Order } from '../../lib/api';
-import { Package, Search } from 'lucide-react';
+import { Package } from 'lucide-react';
+import RequireAuth from '../../components/RequireAuth';
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-700',
@@ -13,41 +14,28 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: 'bg-red-100 text-red-700',
 };
 
-export default function OrdersPage() {
-  const [email, setEmail] = useState('');
+function OrdersList() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setLoading(true);
-    try {
-      const res = await api.getOrders(email.trim());
-      setOrders(res); setSearched(true);
-    } catch { setOrders([]); setSearched(true); }
-    finally { setLoading(false); }
-  };
+  useEffect(() => {
+    api.getOrders()
+      .then(setOrders)
+      .catch(() => setOrders([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="text-center py-16 text-gray-400">Loading orders…</div>;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">My Orders</h1>
-      <form onSubmit={handleSearch} className="bg-white rounded-xl border border-gray-100 p-5 mb-6">
-        <label className="text-sm font-medium text-gray-700 mb-2 block">Enter your email to find your orders</label>
-        <div className="flex gap-3">
-          <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com"
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400" />
-          <button type="submit" disabled={loading} className="flex items-center gap-2 bg-orange-500 text-white font-bold px-4 py-2 rounded-lg hover:bg-orange-600 disabled:opacity-50">
-            <Search size={16} /> {loading ? 'Loading…' : 'Find Orders'}
-          </button>
-        </div>
-      </form>
 
-      {searched && orders.length === 0 && (
-        <div className="text-center py-12 text-gray-400">
-          <Package size={48} className="mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No orders found for this email</p>
+      {orders.length === 0 && (
+        <div className="text-center py-16">
+          <Package size={48} className="mx-auto mb-3 text-gray-300" />
+          <p className="text-gray-500 font-medium">No orders yet</p>
+          <Link href="/products" className="mt-4 inline-block text-orange-500 hover:underline text-sm">Start Shopping</Link>
         </div>
       )}
 
@@ -57,10 +45,14 @@ export default function OrdersPage() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-xs text-gray-400 font-mono">#{order.id.slice(0, 8).toUpperCase()}</p>
-                <p className="text-sm text-gray-500 mt-0.5">{new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
               </div>
               <div className="text-right">
-                <span className={`text-xs font-bold px-2 py-1 rounded-full ${STATUS_COLORS[order.status] ?? 'bg-gray-100 text-gray-600'}`}>{order.status}</span>
+                <span className={`text-xs font-bold px-2 py-1 rounded-full ${STATUS_COLORS[order.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                  {order.status}
+                </span>
                 <p className="font-bold text-orange-500 mt-1">${order.total.toFixed(2)}</p>
               </div>
             </div>
@@ -80,12 +72,10 @@ export default function OrdersPage() {
           </div>
         ))}
       </div>
-
-      {!searched && (
-        <div className="text-center py-8 text-gray-400 text-sm">
-          <p>Enter your email above to view your order history</p>
-        </div>
-      )}
     </div>
   );
+}
+
+export default function OrdersPage() {
+  return <RequireAuth><OrdersList /></RequireAuth>;
 }

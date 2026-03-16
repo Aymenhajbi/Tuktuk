@@ -106,7 +106,7 @@ export class ProductsService {
     return review;
   }
 
-  async createOrder(dto: CreateOrderDto) {
+  async createOrder(dto: CreateOrderDto, userId: string, userEmail: string) {
     const productIds = dto.items.map(i => i.productId);
     const products = await this.prisma.product.findMany({ where: { id: { in: productIds } } });
     const productMap = new Map(products.map(p => [p.id, p]));
@@ -118,7 +118,8 @@ export class ProductsService {
 
     return this.prisma.order.create({
       data: {
-        customerId: dto.customerId,
+        customerId: userEmail,
+        userId,
         address: dto.address,
         total,
         items: {
@@ -132,9 +133,12 @@ export class ProductsService {
     });
   }
 
-  async getOrders(customerId: string) {
+  async getOrders(userId?: string, customerId?: string) {
+    const where: Record<string, string> = {};
+    if (userId) where.userId = userId;
+    else if (customerId) where.customerId = customerId;
     return this.prisma.order.findMany({
-      where: { customerId },
+      where,
       include: { items: { include: { product: { select: { id: true, name: true, images: true } } } } },
       orderBy: { createdAt: 'desc' },
     });

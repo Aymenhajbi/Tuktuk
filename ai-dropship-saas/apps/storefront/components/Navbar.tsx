@@ -1,18 +1,25 @@
 'use client';
 import Link from 'next/link';
 import { useCart } from '../lib/store';
-import { ShoppingCart, User, Search, Menu } from 'lucide-react';
+import { useAuth } from '../lib/auth';
+import { ShoppingCart, User, Search, LogOut, LogIn } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function Navbar() {
   const count = useCart(s => s.count());
+  const { user, logout } = useAuth();
   const [q, setQ] = useState('');
   const router = useRouter();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (q.trim()) router.push(`/products?search=${encodeURIComponent(q.trim())}`);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
   };
 
   return (
@@ -33,10 +40,23 @@ export default function Navbar() {
             </div>
           </form>
           <nav className="flex items-center gap-3 shrink-0">
-            <Link href="/account" className="flex items-center gap-1 text-sm text-gray-600 hover:text-orange-500">
-              <User size={20} />
-              <span className="hidden sm:inline">Account</span>
-            </Link>
+            {user ? (
+              <>
+                <Link href="/account" className="flex items-center gap-1 text-sm text-gray-600 hover:text-orange-500">
+                  <User size={20} />
+                  <span className="hidden sm:inline max-w-[100px] truncate">{user.name}</span>
+                </Link>
+                <button onClick={handleLogout} className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-500">
+                  <LogOut size={18} />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </>
+            ) : (
+              <Link href="/auth" className="flex items-center gap-1 text-sm text-gray-600 hover:text-orange-500">
+                <LogIn size={20} />
+                <span className="hidden sm:inline">Login</span>
+              </Link>
+            )}
             <Link href="/cart" className="relative flex items-center gap-1 text-sm text-gray-600 hover:text-orange-500">
               <ShoppingCart size={20} />
               {count > 0 && (

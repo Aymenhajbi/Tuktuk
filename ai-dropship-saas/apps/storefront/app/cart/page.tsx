@@ -3,8 +3,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCart } from '../../lib/store';
 import { Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
+import RequireAuth from '../../components/RequireAuth';
 
-export default function CartPage() {
+function CartContent() {
   const { items, update, remove, total, count } = useCart();
   const cartTotal = total();
   const cartCount = count();
@@ -70,4 +71,8 @@ export default function CartPage() {
       </div>
     </div>
   );
+}
+
+export default function CartPage() {
+  return <RequireAuth><CartContent /></RequireAuth>;
 }

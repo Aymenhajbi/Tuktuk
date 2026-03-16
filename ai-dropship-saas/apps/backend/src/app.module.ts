@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from './modules/auth/auth.module';
 import { WinningEngineModule } from './modules/winning-engine/winning-engine.module';
 import { CompetitorIntelligenceModule } from './modules/competitor-intelligence/competitor-intelligence.module';
 import { TiktokAnalyzerModule } from './modules/tiktok-analyzer/tiktok-analyzer.module';
@@ -13,6 +14,7 @@ import { ProductsModule } from './modules/products/products.module';
 @Module({
   imports: [
     PrismaModule,
+    AuthModule,
     QueueModule,
     WinningEngineModule,
     CompetitorIntelligenceModule,

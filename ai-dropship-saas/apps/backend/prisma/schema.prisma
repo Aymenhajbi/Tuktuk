@@ -255,6 +255,34 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  name          String
+  role          Role           @default(CUSTOMER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  refreshTokens RefreshToken[]
+  orders        Order[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
 model Category {
   id       String    @id @default(uuid())
   name     String    @unique
@@ -302,6 +330,8 @@ model Review {
 model Order {
   id         String      @id @default(uuid())
   customerId String
+  userId     String?
+  user       User?       @relation(fields: [userId], references: [id])
   status     OrderStatus @default(PENDING)
   total      Float
   address    String
@@ -310,6 +340,7 @@ model Order {
   updatedAt  DateTime    @updatedAt
 
   @@index([customerId])
+  @@index([userId])
 }
 
 model OrderItem {
