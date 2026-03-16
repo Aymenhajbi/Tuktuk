@@ -1,358 +1,124 @@
-'use client';
 import Link from 'next/link';
+import Image from 'next/image';
+import { api } from '../lib/api';
+import ProductCard from '../components/ProductCard';
 
-const navRoutes = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/winning-lab', label: 'Winning Lab' },
-  { href: '/competitor-radar', label: 'Competitor Radar' },
-  { href: '/trend-monitor', label: 'Trend Monitor' },
-  { href: '/profit-simulator', label: 'Profit Simulator' },
-  { href: '/ai-campaign-studio', label: 'AI Campaign Studio' },
-];
-
-const trending = [
-  { name: 'Neon Utility Bomber', price: '$129', badge: 'HOT' },
-  { name: 'Electric Cargo Set', price: '$149', badge: 'TRENDING' },
-  { name: 'Shadow Oversized Hoodie', price: '$99', badge: 'BESTSELLER' },
-  { name: 'Arc Runner 3D Sneakers', price: '$169', badge: 'NEW' },
-];
-
-const limitedDrops = [
-  { name: 'TUKTUK x NightGrid Jacket', stock: '32 left' },
-  { name: 'Chrome Pulse Tactical Vest', stock: '11 left' },
-  { name: 'Afterglow Reflective Pants', stock: '17 left' },
-];
-
-const seasonal = [
-  { title: 'Summer Heatwave', subtitle: 'Lightweight street essentials' },
-  { title: 'Autumn Flux', subtitle: 'Layered silhouettes + deep tones' },
-  { title: 'Winter Neon Core', subtitle: 'Insulated cuts with luminous accents' },
-];
-
-export default function HomePage() {
-  return (
-    <main className="page">
-      <div className="ambient ambient-1" />
-      <div className="ambient ambient-2" />
-
-      <header className="header">
-        <div className="brand">TUKTUK</div>
-        <nav className="nav">
-          {navRoutes.map((route) => (
-            <Link key={route.href} href={route.href} className="nav-link">
-              {route.label}
-            </Link>
-          ))}
-        </nav>
-      </header>
-
-      <section className="hero">
-        <div>
-          <p className="eyebrow">SHOP IT FIRST</p>
-          <h1>تسوق بذكاء… وابتسم لكل شيء حولك</h1>
-          <p className="subtitle">
-            .منصة تسوق إلكتروني عالمية تقدم منتجات متنوعة وخدمات دفع آمنة وتوصيل سريع
-          </p>
-          <div className="cta-row">
-            <button className="primary">Shop Latest Drops</button>
-            <button className="ghost">Explore</button>
-          </div>
-        </div>
-
-        <div className="mockup-zone">
-          <div className="mockup-card one">3D JACKET</div>
-          <div className="mockup-card two">3D SNEAKER</div>
-          <div className="mockup-card three">3D BAG</div>
-        </div>
-      </section>
-
-      <section className="section">
-        <h2>Trending</h2>
-        <div className="grid products">
-          {trending.map((item) => (
-            <article key={item.name} className="card product-card">
-              <span className="badge">{item.badge}</span>
-              <div className="image-placeholder" />
-              <h3>{item.name}</h3>
-              <p>{item.price}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="section split">
-        <div>
-          <h2>Limited Edition Drops</h2>
-          <div className="grid">
-            {limitedDrops.map((drop) => (
-              <article key={drop.name} className="card limited-card">
-                <h3>{drop.name}</h3>
-                <p>{drop.stock}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <h2>Seasonal Collections</h2>
-          <div className="grid">
-            {seasonal.map((collection) => (
-              <article key={collection.title} className="card seasonal-card">
-                <h3>{collection.title}</h3>
-                <p>{collection.subtitle}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="section inclusive">
-        <h2>Built for a Global Community</h2>
-        <p>
-          Diverse silhouettes, inclusive fits, and expressive aesthetics for every city,
-          every identity, every movement.
-        </p>
-
-      </section>
-
-      <style jsx>{`
-        .page {
-          min-height: 100vh;
-          background: radial-gradient(circle at 20% 20%, #122548 0%, #07090f 40%, #030305 100%);
-          color: #f2f4ff;
-          padding: 28px;
-          font-family: Inter, system-ui, sans-serif;
-          position: relative;
-          overflow: hidden;
-        }
-
-        .ambient {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(60px);
-          z-index: 0;
-        }
-
-        .ambient-1 {
-          width: 320px;
-          height: 320px;
-          background: rgba(21, 146, 255, 0.25);
-          top: -70px;
-          right: -80px;
-        }
-
-        .ambient-2 {
-          width: 240px;
-          height: 240px;
-          background: rgba(0, 255, 214, 0.16);
-          bottom: -80px;
-          left: -70px;
-        }
-
-        .header,
-        .hero,
-        .section {
-          position: relative;
-          z-index: 1;
-        }
-
-        .header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 28px;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-
-        .brand {
-          letter-spacing: 0.18em;
-          font-weight: 800;
-        }
-
-        .nav {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .nav-link {
-          text-decoration: none;
-          color: #dbe7ff;
-          border: 1px solid rgba(122, 173, 255, 0.3);
-          padding: 8px 12px;
-          border-radius: 999px;
-          font-size: 12px;
-        }
-
-        .hero {
-          display: grid;
-          grid-template-columns: 1.2fr 1fr;
-          gap: 24px;
-          align-items: center;
-          margin-bottom: 36px;
-        }
-
-        .eyebrow {
-          color: #9ec4ff;
-          font-size: 12px;
-          letter-spacing: 0.1em;
-        }
-
-        h1 {
-          font-size: clamp(30px, 6vw, 58px);
-          line-height: 1.05;
-          margin: 8px 0;
-        }
-
-        .subtitle {
-          color: #c5d6ff;
-          max-width: 580px;
-        }
-
-        .cta-row {
-          display: flex;
-          gap: 10px;
-          margin-top: 16px;
-          flex-wrap: wrap;
-        }
-
-        .primary,
-        .ghost {
-          border-radius: 12px;
-          padding: 10px 14px;
-          cursor: pointer;
-          border: 0;
-          font-weight: 600;
-        }
-
-        .primary {
-          background: linear-gradient(120deg, #1d77ff, #00e5ff);
-          color: #04111d;
-        }
-
-        .ghost {
-          background: rgba(255, 255, 255, 0.06);
-          color: #eef4ff;
-          border: 1px solid rgba(130, 178, 255, 0.35);
-        }
-
-        .mockup-zone {
-          position: relative;
-          height: 300px;
-        }
-
-        .mockup-card {
-          position: absolute;
-          width: 170px;
-          height: 210px;
-          border-radius: 20px;
-          display: grid;
-          place-items: center;
-          font-weight: 700;
-          color: #e8f8ff;
-          background: linear-gradient(180deg, rgba(28, 88, 188, 0.55), rgba(0, 0, 0, 0.5));
-          border: 1px solid rgba(130, 190, 255, 0.35);
-          box-shadow: 0 25px 40px rgba(0, 0, 0, 0.5);
-          backdrop-filter: blur(8px);
-        }
-
-        .one {
-          left: 0;
-          top: 40px;
-          transform: rotate(-9deg);
-        }
-
-        .two {
-          left: 90px;
-          top: 0;
-          transform: rotate(4deg);
-          z-index: 2;
-        }
-
-        .three {
-          right: 10px;
-          top: 62px;
-          transform: rotate(10deg);
-        }
-
-        .section {
-          margin-bottom: 32px;
-        }
-
-        h2 {
-          margin-bottom: 12px;
-        }
-
-        .grid {
-          display: grid;
-          gap: 12px;
-        }
-
-        .products {
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        }
-
-        .card {
-          background: rgba(16, 22, 37, 0.8);
-          border: 1px solid rgba(110, 169, 255, 0.25);
-          border-radius: 16px;
-          padding: 14px;
-          transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
-        }
-
-        .card:hover {
-          transform: translateY(-6px);
-          border-color: rgba(94, 211, 255, 0.8);
-          box-shadow: 0 20px 30px rgba(5, 13, 26, 0.65);
-        }
-
-        .badge {
-          font-size: 11px;
-          color: #1bf5ff;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-        }
-
-        .image-placeholder {
-          height: 150px;
-          margin: 10px 0;
-          border-radius: 12px;
-          background: linear-gradient(140deg, #0d1425, #16284a 45%, #0f1a30 100%);
-          box-shadow: inset 0 0 0 1px rgba(148, 190, 255, 0.2);
-        }
-
-        .split {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 14px;
-        }
-
-        .inclusive {
-          text-align: center;
-          background: linear-gradient(120deg, rgba(20, 36, 71, 0.7), rgba(0, 42, 63, 0.45));
-          border: 1px solid rgba(111, 180, 255, 0.3);
-          padding: 22px;
-          border-radius: 18px;
-        }
-
-        @media (max-width: 980px) {
-          .hero,
-          .split {
-            grid-template-columns: 1fr;
-          }
-
-          .mockup-zone {
-            height: 230px;
-          }
-
-          .mockup-card {
-            width: 140px;
-            height: 170px;
-          }
-        }
-      `}</style>
-    </main>
-  );
+async function getData() {
+  try {
+    const [featured, trending, categories] = await Promise.all([
+      api.getFeatured().catch(() => []),
+      api.getTrending().catch(() => []),
+      api.getCategories().catch(() => []),
+    ]);
+    return { featured, trending, categories };
+  } catch {
+    return { featured: [], trending: [], categories: [] };
+  }
 }
 
+export default async function HomePage() {
+  const { featured, trending, categories } = await getData();
+
+  return (
+    <div>
+      {/* Hero Banner */}
+      <section className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 py-16 flex flex-col md:flex-row items-center gap-8">
+          <div className="flex-1">
+            <p className="text-orange-100 text-sm font-medium mb-2">🔥 Hot Deals — Limited Time</p>
+            <h1 className="text-4xl md:text-5xl font-black mb-4 leading-tight">Shop Smart,<br/>Save More</h1>
+            <p className="text-orange-100 text-lg mb-6">Discover thousands of products at unbeatable prices. Free delivery on orders over $50.</p>
+            <div className="flex gap-3 flex-wrap">
+              <Link href="/products" className="bg-white text-orange-600 font-bold px-6 py-3 rounded-full hover:bg-orange-50 transition-colors">
+                Shop Now
+              </Link>
+              <Link href="/products?featured=true" className="border border-white text-white font-bold px-6 py-3 rounded-full hover:bg-orange-600 transition-colors">
+                View Deals
+              </Link>
+            </div>
+          </div>
+          <div className="flex gap-4 shrink-0">
+            {[
+              { icon: '🚚', title: 'Free Delivery', sub: 'Orders over $50' },
+              { icon: '↩️', title: 'Easy Returns', sub: '30-day policy' },
+              { icon: '🔒', title: 'Secure Pay', sub: '100% protected' },
+            ].map(b => (
+              <div key={b.title} className="bg-orange-600 rounded-xl p-4 text-center hidden md:block">
+                <div className="text-2xl mb-1">{b.icon}</div>
+                <p className="font-bold text-sm">{b.title}</p>
+                <p className="text-orange-200 text-xs">{b.sub}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-12">
+        {/* Categories */}
+        {categories.length > 0 && (
+          <section>
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Shop by Category</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+              {categories.map(cat => (
+                <Link key={cat.id} href={`/products?categoryId=${cat.id}`}
+                  className="group bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 p-4 text-center transition-all hover:-translate-y-1">
+                  <div className="relative h-16 mb-3 rounded-lg overflow-hidden bg-gray-50">
+                    {cat.image && <Image src={cat.image} alt={cat.name} fill className="object-cover" sizes="150px" />}
+                  </div>
+                  <p className="font-semibold text-gray-700 text-sm group-hover:text-orange-500">{cat.name}</p>
+                  {cat._count && <p className="text-xs text-gray-400">{cat._count.products} products</p>}
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Featured Products */}
+        {featured.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">⭐ Featured Products</h2>
+              <Link href="/products?featured=true" className="text-orange-500 hover:text-orange-600 font-medium text-sm">View all →</Link>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {featured.map(p => <ProductCard key={p.id} product={p} />)}
+            </div>
+          </section>
+        )}
+
+        {/* Promo Banner */}
+        <section className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-8 text-white flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <p className="text-purple-200 text-sm mb-1">Limited Time Offer</p>
+            <h3 className="text-2xl font-bold mb-2">Up to 50% OFF on Electronics</h3>
+            <p className="text-purple-200">Wireless earbuds, smartwatches, speakers & more</p>
+          </div>
+          <Link href="/products?categoryId=electronics" className="bg-white text-purple-600 font-bold px-6 py-3 rounded-full whitespace-nowrap hover:bg-purple-50 transition-colors">
+            Shop Electronics
+          </Link>
+        </section>
+
+        {/* Trending Products */}
+        {trending.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">📈 Trending Now</h2>
+              <Link href="/products?minRating=4" className="text-orange-500 hover:text-orange-600 font-medium text-sm">View all →</Link>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {trending.map(p => <ProductCard key={p.id} product={p} />)}
+            </div>
+          </section>
+        )}
+
+        {featured.length === 0 && trending.length === 0 && (
+          <div className="text-center py-20 text-gray-400">
+            <p className="text-5xl mb-4">🛍️</p>
+            <h3 className="text-xl font-bold mb-2">No products yet</h3>
+            <p>Add products via the admin panel at localhost:3002</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

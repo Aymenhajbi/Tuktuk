@@ -8,6 +8,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RealtimeGateway } from './websocket/realtime.gateway';
 import { QueueModule } from './queue/queue.module';
 import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
+import { ProductsModule } from './modules/products/products.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
     AiCoreModule,
     AutoPricingModule,
     OrchestratorModule,
+    ProductsModule,
   ],
   providers: [RealtimeGateway],
 })

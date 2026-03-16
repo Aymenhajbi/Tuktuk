@@ -5,6 +5,7 @@ async function req<T = unknown>(method: string, path: string, body?: unknown): P
     method,
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
+    cache: 'no-store',
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
@@ -13,27 +14,32 @@ async function req<T = unknown>(method: string, path: string, body?: unknown): P
   return res.json() as Promise<T>;
 }
 
+export interface Category { id: string; name: string; slug: string; image?: string; _count?: { products: number } }
+export interface Product {
+  id: string; name: string; description?: string; price: number; salePrice?: number;
+  images: string[]; category: Category; brand?: string; rating: number; reviewCount: number;
+  stock: number; tags: string[]; featured: boolean;
+}
+export interface Review { id: string; rating: number; title?: string; body?: string; author: string; createdAt: string }
+export interface ProductDetail extends Product { reviews: Review[] }
+export interface ProductsResponse { data: Product[]; total: number; page: number; limit: number; pages: number }
+export interface Order {
+  id: string; customerId: string; status: string; total: number; address: string;
+  createdAt: string; items: Array<{ id: string; quantity: number; price: number; product: { id: string; name: string; images: string[] } }>;
+}
+
 export const api = {
-  scoreProduct: (body: {
-    productId: string; productName?: string; source?: string; keyword?: string;
-    trendVelocity: number; engagementRate: number; adFrequency: number;
-    marginPotential: number; supplierScore: number; lowCompetitionFactor: number; sentimentScore: number;
-  }) => req('POST', '/modules/winning-engine/score', body),
-
-  generateAssets: (productName: string) =>
-    req('POST', '/modules/ai-core/generate-assets', { productName }),
-
-  scoreViral: (body: { views24h: number; comments: number; shares: number }) =>
-    req('POST', '/modules/tiktok-analyzer/score-viral', body),
-
-  optimizePrice: (body: { cost: number; marketAverage: number; targetMarginPct: number; estimatedCpa: number }) =>
-    req('POST', '/modules/auto-pricing/optimize', body),
-
-  scanCompetitor: (storeUrl: string) =>
-    req('GET', `/modules/competitor-intelligence/scan?storeUrl=${encodeURIComponent(storeUrl)}`),
-
-  getQueueStatus: () =>
-    req<{ queues: Array<{ name: string; waiting: number; active: number; completed: number; failed: number }> }>(
-      'GET', '/modules/queues/status'
-    ),
+  getProducts: (params?: Record<string, string | number | boolean>) => {
+    const qs = params ? '?' + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : '';
+    return req<ProductsResponse>('GET', `/products${qs}`);
+  },
+  getProduct: (id: string) => req<ProductDetail>('GET', `/products/${id}`),
+  getFeatured: () => req<Product[]>('GET', '/products/featured'),
+  getTrending: () => req<Product[]>('GET', '/products/trending'),
+  getCategories: () => req<Category[]>('GET', '/categories'),
+  createOrder: (body: { customerId: string; address: string; items: Array<{ productId: string; quantity: number }> }) =>
+    req<Order>('POST', '/orders', body),
+  getOrders: (customerId: string) => req<Order[]>('GET', `/orders?customerId=${customerId}`),
+  addReview: (productId: string, body: { rating: number; author: string; title?: string; body?: string }) =>
+    req('POST', `/products/${productId}/reviews`, body),
 };
