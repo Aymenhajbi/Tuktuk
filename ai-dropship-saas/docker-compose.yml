@@ -115,6 +115,8 @@ services:
       - '3000:3000'
     volumes:
       - ./apps/storefront/app:/app/apps/storefront/app
+      - ./apps/storefront/components:/app/apps/storefront/components
+      - ./apps/storefront/lib:/app/apps/storefront/lib
       - ./apps/storefront/public:/app/apps/storefront/public
       - ./apps/storefront/.next:/app/apps/storefront/.next
     depends_on:
