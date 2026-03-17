@@ -13,9 +13,11 @@ export class ProductsService {
       search, categoryId, minPrice, maxPrice, minRating,
       featured, page = 1, limit = 20,
       sortBy = 'createdAt', sortOrder = 'desc',
+      showAll,
     } = query;
 
-    const where: Record<string, unknown> = { active: true };
+    const where: Record<string, unknown> = {};
+    if (!showAll || (showAll as unknown) === 'false') where['active'] = true;
     if (search) where['name'] = { contains: search, mode: 'insensitive' };
     if (categoryId) where['categoryId'] = categoryId;
     if (minPrice !== undefined || maxPrice !== undefined) {

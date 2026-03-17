@@ -9,4 +9,5 @@ export class QueryProductsDto {
   limit?: number;
   sortBy?: 'price' | 'rating' | 'createdAt' | 'name';
   sortOrder?: 'asc' | 'desc';
+  showAll?: boolean;
 }

@@ -51,6 +51,57 @@ async function req<T = unknown>(method: string, path: string, body?: unknown, re
   return res.json() as Promise<T>;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  image?: string;
+  _count?: { products: number };
+}
+
+export interface AdminProduct {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  salePrice?: number;
+  images: string[];
+  category: { id: string; name: string; slug: string };
+  categoryId: string;
+  brand?: string;
+  rating: number;
+  reviewCount: number;
+  stock: number;
+  sku?: string;
+  tags: string[];
+  featured: boolean;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface ProductsPage {
+  data: AdminProduct[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface CreateProductBody {
+  name: string;
+  description?: string;
+  price: number;
+  salePrice?: number;
+  images?: string[];
+  categoryId: string;
+  brand?: string;
+  stock?: number;
+  sku?: string;
+  tags?: string[];
+  featured?: boolean;
+  active?: boolean;
+}
+
 export interface ScoreProductBody {
   productId: string;
   productName?: string;
@@ -81,6 +132,21 @@ export interface QueueStatusResult {
 }
 
 export const api = {
+  // Products CRUD
+  listProducts: (params?: Record<string, string | number | boolean>) => {
+    const qs = params ? '?' + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : '';
+    return req<ProductsPage>('GET', `/products${qs}`);
+  },
+  getProduct: (id: string) => req<AdminProduct>('GET', `/products/${id}`),
+  createProduct: (body: CreateProductBody) => req<AdminProduct>('POST', '/products', body),
+  updateProduct: (id: string, body: Partial<CreateProductBody>) => req<AdminProduct>('PUT', `/products/${id}`, body),
+  deleteProduct: (id: string) => req('DELETE', `/products/${id}`),
+
+  // Categories
+  listCategories: () => req<Category[]>('GET', '/categories'),
+  createCategory: (body: { name: string; slug: string; image?: string }) =>
+    req<Category>('POST', '/categories', body),
+
   scoreProduct: (body: ScoreProductBody) =>
     req('POST', '/modules/winning-engine/score', body),
 

@@ -10,10 +10,12 @@ import {
   Megaphone,
   DollarSign,
   Activity,
+  Package,
 } from 'lucide-react';
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  { href: '/products', label: 'Products', Icon: Package },
   { href: '/winning-products', label: 'Winning Products', Icon: Trophy },
   { href: '/competitor-radar', label: 'Competitor Radar', Icon: Radar },
   { href: '/tiktok-analyzer', label: 'TikTok Analyzer', Icon: TrendingUp },

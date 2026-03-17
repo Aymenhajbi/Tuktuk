@@ -10,4 +10,5 @@ export class CreateProductDto {
   sku?: string;
   tags?: string[];
   featured?: boolean;
+  active?: boolean;
 }
