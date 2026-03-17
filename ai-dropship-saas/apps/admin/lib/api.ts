@@ -144,6 +144,26 @@ export interface ScoreProductBody {
   sentimentScore: number;
 }
 
+export interface OrderItem {
+  id: string;
+  quantity: number;
+  price: number;
+  product: { id: string; name: string; images: string[] };
+}
+
+export interface AdminOrder {
+  id: string;
+  customerId: string;
+  status: 'PENDING' | 'PAID' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'FAILED';
+  total: number;
+  address: string;
+  stripeSessionId?: string;
+  createdAt: string;
+  updatedAt: string;
+  items: OrderItem[];
+  user?: { id: string; name: string; email: string };
+}
+
 export interface QueueCounts {
   waiting: number;
   active: number;
@@ -201,4 +221,9 @@ export const api = {
 
   getQueueStatus: () =>
     req<QueueStatusResult>('GET', '/modules/queues/status'),
+
+  // Orders
+  listOrders: () => req<AdminOrder[]>('GET', '/orders'),
+  updateOrderStatus: (id: string, status: AdminOrder['status']) =>
+    req<AdminOrder>('PUT', `/orders/${id}/status`, { status }),
 };

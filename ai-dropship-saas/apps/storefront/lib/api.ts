@@ -100,4 +100,10 @@ export const api = {
   createOrder: (body: { address: string; items: Array<{ productId: string; quantity: number }> }) =>
     req<Order>('POST', '/orders', body, true),
   getOrders: () => req<Order[]>('GET', '/orders', undefined, true),
+
+  // Payments
+  createCheckoutSession: (orderId: string) =>
+    req<{ url: string; sessionId: string }>('POST', '/payments/create-checkout-session', { orderId }),
+  verifySession: (sessionId: string) =>
+    req<Order | null>('GET', `/payments/verify?session_id=${encodeURIComponent(sessionId)}`),
 };

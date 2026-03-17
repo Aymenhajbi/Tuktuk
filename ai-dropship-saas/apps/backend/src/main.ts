@@ -5,7 +5,7 @@ import { AppModule } from './app.module';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.enableCors({
     origin: ['http://localhost:3000', 'http://localhost:3002'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

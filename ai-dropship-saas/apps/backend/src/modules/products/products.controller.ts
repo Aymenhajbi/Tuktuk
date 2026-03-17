@@ -82,6 +82,12 @@ export class ProductsController {
     return this.productsService.getOrders(userId, customerId);
   }
 
+  @Roles('ADMIN')
+  @Put('orders/:id/status')
+  updateOrderStatus(@Param('id') id: string, @Body() body: { status: string }) {
+    return this.productsService.updateOrderStatus(id, body.status);
+  }
+
   @Public()
   @Post('seed')
   seed() { return this.productsService.seedDemo(); }

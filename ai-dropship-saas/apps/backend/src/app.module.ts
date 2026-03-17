@@ -11,6 +11,7 @@ import { QueueModule } from './queue/queue.module';
 import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ScraperModule } from './modules/scraper/scraper.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ScraperModule } from './modules/scraper/scraper.module';
     OrchestratorModule,
     ProductsModule,
     ScraperModule,
+    PaymentsModule,
   ],
   providers: [RealtimeGateway],
 })

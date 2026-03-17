@@ -249,10 +249,12 @@ model ABTestExperiment {
 
 enum OrderStatus {
   PENDING
+  PAID
   PROCESSING
   SHIPPED
   DELIVERED
   CANCELLED
+  FAILED
 }
 
 enum Role {
@@ -330,16 +332,17 @@ model Review {
 }
 
 model Order {
-  id         String      @id @default(uuid())
-  customerId String
-  userId     String?
-  user       User?       @relation(fields: [userId], references: [id])
-  status     OrderStatus @default(PENDING)
-  total      Float
-  address    String
-  items      OrderItem[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id               String      @id @default(uuid())
+  customerId       String
+  userId           String?
+  user             User?       @relation(fields: [userId], references: [id])
+  status           OrderStatus @default(PENDING)
+  total            Float
+  address          String
+  stripeSessionId  String?
+  items            OrderItem[]
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   @@index([customerId])
   @@index([userId])

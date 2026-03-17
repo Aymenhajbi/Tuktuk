@@ -138,6 +138,14 @@ export class ProductsService {
     });
   }
 
+  async updateOrderStatus(id: string, status: string) {
+    return this.prisma.order.update({
+      where: { id },
+      data: { status: status as never },
+      include: { items: { include: { product: { select: { id: true, name: true, images: true } } } } },
+    });
+  }
+
   async getOrders(userId?: string, customerId?: string) {
     const where: Record<string, string> = {};
     if (userId) where.userId = userId;

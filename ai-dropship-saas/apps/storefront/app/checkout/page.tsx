@@ -27,15 +27,17 @@ function CheckoutContent() {
     e.preventDefault();
     setLoading(true);
     try {
+      // 1. Create the order (status: PENDING)
       const order = await api.createOrder({
         address: `${form.address}, ${form.city}, ${form.country} ${form.zip}`,
         items: items.map(i => ({ productId: i.product.id, quantity: i.quantity })),
       });
+      // 2. Create Stripe Checkout session and redirect
+      const { url } = await api.createCheckoutSession(order.id);
       clear();
-      setOrderId(order.id);
-      setSuccess(true);
+      window.location.href = url!;
     } catch (e) {
-      alert('Order failed: ' + (e as Error).message);
+      alert('Checkout failed: ' + (e as Error).message);
     } finally { setLoading(false); }
   };
 
@@ -105,7 +107,7 @@ function CheckoutContent() {
 
           <button type="submit" disabled={loading}
             className="w-full bg-orange-500 text-white font-bold py-3.5 rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50">
-            {loading ? 'Placing Order…' : `Place Order — $${(cartTotal + delivery).toFixed(2)}`}
+            {loading ? 'Redirecting to Stripe…' : `Pay with Stripe — AED ${(cartTotal + delivery).toFixed(2)}`}
           </button>
         </form>
 
@@ -122,15 +124,15 @@ function CheckoutContent() {
                     <p className="text-xs font-medium text-gray-700 line-clamp-1">{p.name}</p>
                     <p className="text-xs text-gray-400">Qty: {quantity}</p>
                   </div>
-                  <p className="text-sm font-bold text-gray-700 shrink-0">${((p.salePrice ?? p.price) * quantity).toFixed(2)}</p>
+                  <p className="text-sm font-bold text-gray-700 shrink-0">AED {((p.salePrice ?? p.price) * quantity).toFixed(2)}</p>
                 </div>
               ))}
             </div>
             <div className="border-t border-gray-100 pt-4 space-y-2 text-sm">
-              <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>${cartTotal.toFixed(2)}</span></div>
-              <div className="flex justify-between text-gray-600"><span>Delivery</span><span className={delivery === 0 ? 'text-green-600 font-medium' : ''}>{delivery === 0 ? 'FREE' : `$${delivery.toFixed(2)}`}</span></div>
+              <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>AED {cartTotal.toFixed(2)}</span></div>
+              <div className="flex justify-between text-gray-600"><span>Delivery</span><span className={delivery === 0 ? 'text-green-600 font-medium' : ''}>{delivery === 0 ? 'FREE' : `AED ${delivery.toFixed(2)}`}</span></div>
               <div className="flex justify-between font-bold text-base pt-2 border-t border-gray-100">
-                <span>Total</span><span className="text-orange-500">${(cartTotal + delivery).toFixed(2)}</span>
+                <span>Total</span><span className="text-orange-500">AED {(cartTotal + delivery).toFixed(2)}</span>
               </div>
             </div>
           </div>
