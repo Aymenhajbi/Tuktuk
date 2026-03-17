@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { QueryProductsDto } from './dto/query-products.dto';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -176,5 +176,103 @@ export class ProductsService {
     });
 
     return { message: 'Demo data seeded successfully', categories: categories.length, products: 10 };
+  }
+
+  async importFromAliExpress(url: string) {
+    if (!/aliexpress\.(com|us)\/item\//i.test(url)) {
+      throw new BadRequestException('Please provide a valid AliExpress product URL (must contain aliexpress.com/item/)');
+    }
+
+    let html: string;
+    try {
+      const ac = new AbortController();
+      const t = setTimeout(() => ac.abort(), 15000);
+      const res = await fetch(url, {
+        signal: ac.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cache-Control': 'no-cache',
+        },
+      });
+      clearTimeout(t);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      html = await res.text();
+    } catch (err) {
+      throw new BadRequestException(`Could not fetch product page: ${(err as Error).message}`);
+    }
+
+    // — Name —
+    let name = this.extractOGMeta(html, 'og:title') || this.extractTitle(html) || '';
+    // Clean AliExpress noise: "40% OFF | Product Name | Store – AliExpress"
+    name = name
+      .replace(/^\d+%?\s*(?:OFF|off)\s*[|│]\s*/g, '')
+      .replace(/\s*[|│].*$/, '')
+      .replace(/\s*[-–]\s*AliExpress.*$/i, '')
+      .trim();
+
+    // — Description —
+    const description = (
+      this.extractOGMeta(html, 'og:description') ||
+      this.extractMetaName(html, 'description')
+    ).slice(0, 1000).trim();
+
+    // — Images —
+    const images: string[] = [];
+    const ogImg = this.extractOGMeta(html, 'og:image');
+    if (ogImg) images.push(ogImg.startsWith('//') ? `https:${ogImg}` : ogImg);
+
+    const imgListMatch = html.match(/"imagePathList"\s*:\s*(\["[^"]*"(?:\s*,\s*"[^"]*")*\])/);
+    if (imgListMatch) {
+      try {
+        const list = JSON.parse(imgListMatch[1]) as string[];
+        for (const img of list) {
+          const normalized = img.startsWith('//') ? `https:${img}` : img;
+          if (!images.includes(normalized)) images.push(normalized);
+        }
+      } catch { /* ignore */ }
+    }
+
+    // — Price (USD) — try multiple extraction patterns
+    let priceUSD = 0;
+    const pricePatterns = [
+      /"formatedAmount"\s*:\s*"([^"]+)"/,
+      /"minAmount"\s*:\s*"([^"]+)"/,
+      /"activityAmount"\s*:\s*"([^"]+)"/,
+      /"maxActivityAmount"\s*:\s*"([^"]+)"/,
+      /<meta[^>]+property="og:price:amount"[^>]+content="([^"]+)"/i,
+    ];
+    for (const re of pricePatterns) {
+      const m = html.match(re);
+      if (m) {
+        const parsed = parseFloat(m[1].replace(/[^0-9.]/g, ''));
+        if (parsed > 0) { priceUSD = parsed; break; }
+      }
+    }
+
+    // UAE retail price = supplier USD cost × FX (3.67) × 2.5× markup
+    const priceAED = priceUSD > 0 ? Math.round(priceUSD * 3.67 * 2.5) : 0;
+
+    return { name, description, images: images.slice(0, 8), priceUSD, priceAED, sourceUrl: url };
+  }
+
+  private extractOGMeta(html: string, property: string): string {
+    const m =
+      html.match(new RegExp(`<meta[^>]+property=["']${property}["'][^>]+content=["']([^"']*?)["']`, 'i')) ||
+      html.match(new RegExp(`<meta[^>]+content=["']([^"']*?)["'][^>]+property=["']${property}["']`, 'i'));
+    return m ? m[1] : '';
+  }
+
+  private extractMetaName(html: string, name: string): string {
+    const m =
+      html.match(new RegExp(`<meta[^>]+name=["']${name}["'][^>]+content=["']([^"']*?)["']`, 'i')) ||
+      html.match(new RegExp(`<meta[^>]+content=["']([^"']*?)["'][^>]+name=["']${name}["']`, 'i'));
+    return m ? m[1] : '';
+  }
+
+  private extractTitle(html: string): string {
+    const m = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    return m ? m[1].trim() : '';
   }
 }

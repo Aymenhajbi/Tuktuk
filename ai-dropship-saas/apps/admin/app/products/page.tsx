@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, AdminProduct, Category, CreateProductBody } from '../../lib/api';
+import { api, AdminProduct, AliExpressImport, Category, CreateProductBody } from '../../lib/api';
 import {
   Plus, Pencil, Trash2, Search, X, Loader2, AlertCircle,
-  CheckCircle, XCircle, ChevronLeft, ChevronRight, Eye, EyeOff,
+  CheckCircle, XCircle, ChevronLeft, ChevronRight, Download,
 } from 'lucide-react';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -253,6 +253,254 @@ function DeleteConfirm({ product, onCancel, onDeleted }: { product: AdminProduct
   );
 }
 
+// ─── AliExpress import modal ─────────────────────────────────────────────────
+
+interface ImportModalProps {
+  categories: Category[];
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
+  const [step, setStep] = useState<'url' | 'review'>('url');
+  const [url, setUrl] = useState('');
+  const [extracting, setExtracting] = useState(false);
+  const [extractError, setExtractError] = useState('');
+  const [preview, setPreview] = useState<AliExpressImport | null>(null);
+
+  // Review form state (pre-filled from preview, fully editable)
+  const [form, setForm] = useState<CreateProductBody & { imagesRaw: string; tagsRaw: string }>({
+    ...{ name: '', description: '', price: 0, salePrice: undefined, images: [],
+         categoryId: '', brand: '', stock: 10, sku: '', tags: [], featured: false, active: true },
+    imagesRaw: '',
+    tagsRaw: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  const setF = (field: string, value: unknown) => setForm(f => ({ ...f, [field]: value }));
+
+  const handleExtract = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setExtractError('');
+    setExtracting(true);
+    try {
+      const data = await api.importAliExpress(url.trim());
+      setPreview(data);
+      setForm(f => ({
+        ...f,
+        name: data.name,
+        description: data.description,
+        price: data.priceAED,
+        images: data.images,
+        imagesRaw: data.images.join('\n'),
+        tagsRaw: '',
+        stock: 10,
+        active: true,
+        featured: false,
+      }));
+      setStep('review');
+    } catch (err) {
+      setExtractError((err as Error).message);
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaveError('');
+    setSaving(true);
+    try {
+      await api.createProduct({
+        name: form.name,
+        description: form.description,
+        price: Number(form.price),
+        salePrice: form.salePrice ? Number(form.salePrice) : undefined,
+        images: form.imagesRaw.split('\n').map(s => s.trim()).filter(Boolean),
+        categoryId: form.categoryId,
+        brand: form.brand,
+        stock: Number(form.stock),
+        sku: form.sku,
+        tags: form.tagsRaw.split(',').map(s => s.trim()).filter(Boolean),
+        featured: form.featured,
+        active: form.active,
+      });
+      onSaved();
+    } catch (err) {
+      setSaveError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputCls = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400';
+  const labelCls = 'block text-xs font-medium text-slate-500 mb-1';
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Import from AliExpress</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {step === 'url' ? 'Paste a product URL to extract details automatically.' : 'Review extracted data — all fields are editable before saving.'}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={20} /></button>
+        </div>
+
+        {/* Step 1 — URL */}
+        {step === 'url' && (
+          <form onSubmit={handleExtract} className="p-6 space-y-4">
+            <div>
+              <label className={labelCls}>AliExpress Product URL</label>
+              <input
+                required
+                value={url}
+                onChange={e => setUrl(e.target.value)}
+                placeholder="https://www.aliexpress.com/item/1005006xxxxxx.html"
+                className={inputCls}
+              />
+            </div>
+            {extractError && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                <span>{extractError}</span>
+              </div>
+            )}
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg px-4 py-3">
+              Price is automatically converted to AED with a <strong>2.5× markup</strong> (supplier USD → AED retail). You can edit it before saving.
+            </div>
+            <div className="flex justify-end gap-3 pt-1">
+              <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+              <button type="submit" disabled={extracting} className="px-5 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                {extracting ? <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" />Extracting…</span> : 'Extract Product'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Step 2 — Review */}
+        {step === 'review' && preview && (
+          <form onSubmit={handleSave} className="p-6 space-y-4">
+            {/* Source info banner */}
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 text-xs text-indigo-800 flex items-center justify-between">
+              <span>
+                Extracted from AliExpress
+                {preview.priceUSD > 0 && <> · Supplier cost <strong>${preview.priceUSD.toFixed(2)} USD</strong> → <strong>AED {preview.priceAED}</strong> retail (2.5×)</>}
+              </span>
+              <button type="button" onClick={() => setStep('url')} className="text-indigo-600 hover:underline font-medium">Try another URL</button>
+            </div>
+
+            {saveError && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+                <AlertCircle size={14} />{saveError}
+              </div>
+            )}
+
+            {/* Name + Brand */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Name *</label>
+                <input required value={form.name} onChange={e => setF('name', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Brand</label>
+                <input value={form.brand ?? ''} onChange={e => setF('brand', e.target.value)} className={inputCls} placeholder="Brand" />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className={labelCls}>Description</label>
+              <textarea rows={3} value={form.description ?? ''} onChange={e => setF('description', e.target.value)}
+                className={`${inputCls} resize-none`} />
+            </div>
+
+            {/* Price + Sale price */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Price (AED) *</label>
+                <input required type="number" min={0} step="0.01" value={form.price}
+                  onChange={e => setF('price', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Sale Price (AED)</label>
+                <input type="number" min={0} step="0.01" value={form.salePrice ?? ''}
+                  onChange={e => setF('salePrice', e.target.value ? Number(e.target.value) : undefined)}
+                  className={inputCls} placeholder="Optional" />
+              </div>
+            </div>
+
+            {/* Category + Stock */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Category *</label>
+                <select required value={form.categoryId} onChange={e => setF('categoryId', e.target.value)} className={inputCls}>
+                  <option value="">Select category…</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Initial Stock</label>
+                <input type="number" min={0} value={form.stock ?? 10} onChange={e => setF('stock', e.target.value)} className={inputCls} />
+              </div>
+            </div>
+
+            {/* SKU + Tags */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>SKU</label>
+                <input value={form.sku ?? ''} onChange={e => setF('sku', e.target.value)} className={inputCls} placeholder="Optional" />
+              </div>
+              <div>
+                <label className={labelCls}>Tags (comma-separated)</label>
+                <input value={form.tagsRaw} onChange={e => setF('tagsRaw', e.target.value)} className={inputCls} placeholder="tag1, tag2" />
+              </div>
+            </div>
+
+            {/* Images */}
+            <div>
+              <label className={labelCls}>Image URLs (one per line) — {form.imagesRaw.split('\n').filter(Boolean).length} extracted</label>
+              <textarea rows={4} value={form.imagesRaw} onChange={e => setF('imagesRaw', e.target.value)}
+                className={`${inputCls} resize-none font-mono text-xs`} />
+              {/* Thumbnail preview */}
+              {form.imagesRaw.split('\n').filter(Boolean).length > 0 && (
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {form.imagesRaw.split('\n').filter(Boolean).slice(0, 5).map((img, i) => (
+                    <img key={i} src={img.trim()} alt="" className="w-12 h-12 object-cover rounded-lg border border-slate-200" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Toggles */}
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+                <input type="checkbox" checked={form.featured ?? false} onChange={e => setF('featured', e.target.checked)} className="accent-indigo-600 w-4 h-4" />
+                Featured
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+                <input type="checkbox" checked={form.active ?? true} onChange={e => setF('active', e.target.checked)} className="accent-indigo-600 w-4 h-4" />
+                Active on storefront
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+              <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+              <button type="submit" disabled={saving} className="px-5 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+                {saving ? <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" />Saving…</span> : 'Save to store'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── main page ───────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20;
@@ -272,6 +520,7 @@ export default function ProductsPage() {
 
   // Modal state
   const [modalProduct, setModalProduct] = useState<AdminProduct | null | 'new'>(undefined as unknown as null);
+  const [importOpen, setImportOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AdminProduct | null>(null);
 
   // Toggling active state per product
@@ -341,12 +590,20 @@ export default function ProductsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Products</h1>
           <p className="text-slate-500 text-sm mt-1">Manage your store catalogue — {total} product{total !== 1 ? 's' : ''} total.</p>
         </div>
-        <button
-          onClick={() => setModalProduct('new')}
-          className="flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors"
-        >
-          <Plus size={16} />Add Product
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-2 border border-slate-200 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors"
+          >
+            <Download size={16} />Import from AliExpress
+          </button>
+          <button
+            onClick={() => setModalProduct('new')}
+            className="flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors"
+          >
+            <Plus size={16} />Add Product
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -535,6 +792,14 @@ export default function ProductsPage() {
       )}
 
       {/* Modals */}
+      {importOpen && (
+        <ImportModal
+          categories={categories}
+          onClose={() => setImportOpen(false)}
+          onSaved={() => { setImportOpen(false); load(page); }}
+        />
+      )}
+
       {modalProduct !== undefined && (
         <ProductModal
           product={modalProduct === 'new' ? null : modalProduct}

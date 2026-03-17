@@ -31,6 +31,12 @@ export class ProductsController {
   findOne(@Param('id') id: string) { return this.productsService.findOne(id); }
 
   @Roles('ADMIN')
+  @Post('products/import/aliexpress')
+  importAliExpress(@Body() body: { url: string }) {
+    return this.productsService.importFromAliExpress(body.url);
+  }
+
+  @Roles('ADMIN')
   @Post('products')
   create(@Body() dto: CreateProductDto) { return this.productsService.create(dto); }
 

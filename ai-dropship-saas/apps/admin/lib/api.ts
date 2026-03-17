@@ -87,6 +87,15 @@ export interface ProductsPage {
   pages: number;
 }
 
+export interface AliExpressImport {
+  name: string;
+  description: string;
+  images: string[];
+  priceUSD: number;
+  priceAED: number;
+  sourceUrl: string;
+}
+
 export interface CreateProductBody {
   name: string;
   description?: string;
@@ -141,6 +150,7 @@ export const api = {
   createProduct: (body: CreateProductBody) => req<AdminProduct>('POST', '/products', body),
   updateProduct: (id: string, body: Partial<CreateProductBody>) => req<AdminProduct>('PUT', `/products/${id}`, body),
   deleteProduct: (id: string) => req('DELETE', `/products/${id}`),
+  importAliExpress: (url: string) => req<AliExpressImport>('POST', '/products/import/aliexpress', { url }),
 
   // Categories
   listCategories: () => req<Category[]>('GET', '/categories'),
