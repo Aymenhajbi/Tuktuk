@@ -56,7 +56,9 @@ export class ProductsService {
 
   async create(dto: CreateProductDto) {
     const aiScore = this.calculateAiScore(dto);
-    return this.prisma.product.create({ data: { ...dto, aiScore }, include: { category: true } });
+    // Normalize empty SKU → generate unique one so the unique constraint is never hit
+    const sku = dto.sku?.trim() || `IMP-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    return this.prisma.product.create({ data: { ...dto, sku, aiScore }, include: { category: true } });
   }
 
   async update(id: string, dto: Partial<CreateProductDto>) {
