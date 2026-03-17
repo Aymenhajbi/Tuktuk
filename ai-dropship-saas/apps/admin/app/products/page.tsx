@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, AdminProduct, AliExpressImport, Category, CreateProductBody } from '../../lib/api';
+import { api, AdminProduct, AliExpressImport, Category, CJProduct, CreateProductBody } from '../../lib/api';
 import {
   Plus, Pencil, Trash2, Search, X, Loader2, AlertCircle,
-  CheckCircle, XCircle, ChevronLeft, ChevronRight, Download,
+  CheckCircle, XCircle, ChevronLeft, ChevronRight, Download, ShoppingBag,
 } from 'lucide-react';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -30,6 +30,19 @@ function ActiveBadge({ active }: { active: boolean }) {
   return active
     ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700"><CheckCircle size={10} />Active</span>
     : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500"><XCircle size={10} />Inactive</span>;
+}
+
+function AiScoreBadge({ score }: { score?: number }) {
+  if (score == null) return <span className="text-xs text-slate-300">—</span>;
+  const color = score >= 80 ? 'bg-emerald-100 text-emerald-700'
+    : score >= 65 ? 'bg-indigo-100 text-indigo-700'
+    : score >= 50 ? 'bg-amber-100 text-amber-700'
+    : 'bg-red-100 text-red-600';
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${color}`}>
+      {score}
+    </span>
+  );
 }
 
 // ─── form modal ──────────────────────────────────────────────────────────────
@@ -248,6 +261,260 @@ function DeleteConfirm({ product, onCancel, onDeleted }: { product: AdminProduct
             {deleting ? 'Deleting…' : 'Delete'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CJ Dropshipping search modal ────────────────────────────────────────────
+
+interface CJModalProps {
+  categories: Category[];
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function CJSearchModal({ categories, onClose, onSaved }: CJModalProps) {
+  const [keyword, setKeyword] = useState('');
+  const [warehouse, setWarehouse] = useState('oversea');
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<CJProduct[] | null>(null);
+  const [searchError, setSearchError] = useState('');
+  const [selected, setSelected] = useState<CJProduct | null>(null);
+
+  // Review form (shown after clicking Import on a CJ card)
+  const [form, setForm] = useState<CreateProductBody & { imagesRaw: string; tagsRaw: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  const setF = (field: string, value: unknown) =>
+    setForm(f => f ? { ...f, [field]: value } : f);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchError('');
+    setSearching(true);
+    try {
+      const data = await api.searchCJ(keyword.trim(), warehouse);
+      setResults(data.products);
+    } catch (err) {
+      setSearchError((err as Error).message);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleSelectProduct = (p: CJProduct) => {
+    setSelected(p);
+    setForm({
+      name: p.name, description: '', price: p.suggestedPriceAED,
+      salePrice: undefined, images: p.images, imagesRaw: p.images.join('\n'),
+      categoryId: '', brand: '', stock: 50, sku: p.cjId,
+      tags: [p.categoryName.toLowerCase().replace(/\s+/g, '-')],
+      tagsRaw: p.categoryName.toLowerCase().replace(/\s+/g, '-'),
+      featured: false, active: true,
+      sourceUrl: `https://cjdropshipping.com/product/${p.cjId}`,
+    });
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form) return;
+    setSaveError('');
+    setSaving(true);
+    try {
+      await api.createProduct({
+        name: form.name, description: form.description,
+        price: Number(form.price),
+        salePrice: form.salePrice ? Number(form.salePrice) : undefined,
+        images: form.imagesRaw.split('\n').map(s => s.trim()).filter(Boolean),
+        categoryId: form.categoryId, brand: form.brand,
+        stock: Number(form.stock), sku: form.sku,
+        tags: form.tagsRaw.split(',').map(s => s.trim()).filter(Boolean),
+        featured: form.featured, active: form.active,
+        sourceUrl: form.sourceUrl,
+      });
+      onSaved();
+    } catch (err) {
+      setSaveError((err as Error).message);
+      setSaving(false);
+    }
+  };
+
+  const inputCls = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400';
+  const labelCls = 'block text-xs font-medium text-slate-500 mb-1';
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Search CJ Dropshipping</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {form ? 'Review product details before saving to your store.' : 'Search the mock catalogue — swap for live CJ credentials in Step 3.'}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={20} /></button>
+        </div>
+
+        {/* Search panel */}
+        {!form && (
+          <div className="p-6">
+            <form onSubmit={handleSearch} className="flex gap-3 mb-5">
+              <input
+                required value={keyword} onChange={e => setKeyword(e.target.value)}
+                placeholder="Search products… e.g. earbuds, skincare, fitness"
+                className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+              />
+              <select value={warehouse} onChange={e => setWarehouse(e.target.value)}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                <option value="oversea">UAE Warehouse (3-7d)</option>
+                <option value="CN">China Warehouse (7-14d)</option>
+                <option value="US">US Warehouse</option>
+                <option value="all">All Warehouses</option>
+              </select>
+              <button type="submit" disabled={searching}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                {searching ? <Loader2 size={16} className="animate-spin" /> : 'Search'}
+              </button>
+            </form>
+
+            {searchError && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">
+                <AlertCircle size={14} />{searchError}
+              </div>
+            )}
+
+            {results === null && !searching && (
+              <div className="text-center py-12 text-slate-400 text-sm">
+                Enter a keyword to search the CJ catalogue.
+              </div>
+            )}
+
+            {results !== null && results.length === 0 && (
+              <div className="text-center py-12 text-slate-400 text-sm">No products found for "{keyword}".</div>
+            )}
+
+            {results && results.length > 0 && (
+              <div className="grid grid-cols-3 gap-3">
+                {results.map(p => (
+                  <div key={p.cjId} className="border border-slate-200 rounded-xl overflow-hidden hover:border-indigo-300 hover:shadow-sm transition-all">
+                    <div className="aspect-square bg-slate-50 overflow-hidden">
+                      <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
+                    </div>
+                    <div className="p-3">
+                      <p className="text-xs font-medium text-slate-800 leading-snug line-clamp-2 mb-2">{p.name}</p>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-slate-400">${p.supplierPriceUSD} USD</span>
+                        <span className="text-sm font-bold text-indigo-600">AED {p.suggestedPriceAED}</span>
+                      </div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-medium">{p.shippingDays}d · {p.warehouse}</span>
+                        <span className="text-[10px] text-slate-500">★ {p.rating}</span>
+                      </div>
+                      <button onClick={() => handleSelectProduct(p)}
+                        className="w-full text-xs font-semibold bg-indigo-600 text-white py-1.5 rounded-lg hover:bg-indigo-700 transition-colors">
+                        Import
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Review form */}
+        {form && selected && (
+          <form onSubmit={handleSave} className="p-6 space-y-4">
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 text-xs text-indigo-800 flex items-center justify-between">
+              <span>CJ ID: <strong>{selected.cjId}</strong> · Supplier <strong>${selected.supplierPriceUSD} USD</strong> → <strong>AED {selected.suggestedPriceAED}</strong> retail (2.5×)</span>
+              <button type="button" onClick={() => setForm(null)} className="text-indigo-600 hover:underline font-medium">Back to results</button>
+            </div>
+
+            {saveError && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+                <AlertCircle size={14} />{saveError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Name *</label>
+                <input required value={form.name} onChange={e => setF('name', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Brand</label>
+                <input value={form.brand ?? ''} onChange={e => setF('brand', e.target.value)} className={inputCls} placeholder="Brand" />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Description</label>
+              <textarea rows={2} value={form.description ?? ''} onChange={e => setF('description', e.target.value)}
+                className={`${inputCls} resize-none`} placeholder="Write a short product description…" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Price (AED) *</label>
+                <input required type="number" min={0} step="0.01" value={form.price} onChange={e => setF('price', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Sale Price (AED)</label>
+                <input type="number" min={0} step="0.01" value={form.salePrice ?? ''} onChange={e => setF('salePrice', e.target.value ? Number(e.target.value) : undefined)} className={inputCls} placeholder="Optional" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Category *</label>
+                <select required value={form.categoryId} onChange={e => setF('categoryId', e.target.value)} className={inputCls}>
+                  <option value="">Select category…</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Stock</label>
+                <input type="number" min={0} value={form.stock ?? 50} onChange={e => setF('stock', e.target.value)} className={inputCls} />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Image URLs (one per line)</label>
+              <textarea rows={3} value={form.imagesRaw} onChange={e => setF('imagesRaw', e.target.value)}
+                className={`${inputCls} resize-none font-mono text-xs`} />
+              {form.imagesRaw.split('\n').filter(Boolean).length > 0 && (
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {form.imagesRaw.split('\n').filter(Boolean).slice(0, 4).map((img, i) => (
+                    <img key={i} src={img.trim()} alt="" className="w-12 h-12 object-cover rounded-lg border border-slate-200" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>SKU</label>
+                <input value={form.sku ?? ''} onChange={e => setF('sku', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Tags (comma-separated)</label>
+                <input value={form.tagsRaw} onChange={e => setF('tagsRaw', e.target.value)} className={inputCls} />
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+                <input type="checkbox" checked={form.featured ?? false} onChange={e => setF('featured', e.target.checked)} className="accent-indigo-600 w-4 h-4" />Featured
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+                <input type="checkbox" checked={form.active ?? true} onChange={e => setF('active', e.target.checked)} className="accent-indigo-600 w-4 h-4" />Active on storefront
+              </label>
+            </div>
+            <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+              <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+              <button type="submit" disabled={saving}
+                className="px-5 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+                {saving ? <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" />Saving…</span> : 'Save to store'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -521,6 +788,7 @@ export default function ProductsPage() {
   // Modal state
   const [modalProduct, setModalProduct] = useState<AdminProduct | null | 'new'>(undefined as unknown as null);
   const [importOpen, setImportOpen] = useState(false);
+  const [cjOpen, setCjOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AdminProduct | null>(null);
 
   // Toggling active state per product
@@ -592,6 +860,12 @@ export default function ProductsPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setCjOpen(true)}
+            className="flex items-center gap-2 border border-slate-200 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors"
+          >
+            <ShoppingBag size={16} />Search CJ
+          </button>
+          <button
             onClick={() => setImportOpen(true)}
             className="flex items-center gap-2 border border-slate-200 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors"
           >
@@ -662,6 +936,7 @@ export default function ProductsPage() {
             <tr>
               <th className="text-left px-5 py-3 text-slate-600 font-medium">Product</th>
               <th className="text-left px-4 py-3 text-slate-600 font-medium">Category</th>
+              <th className="text-center px-4 py-3 text-slate-600 font-medium">AI Score</th>
               <th className="text-right px-4 py-3 text-slate-600 font-medium">Price</th>
               <th className="text-center px-4 py-3 text-slate-600 font-medium">Stock</th>
               <th className="text-center px-4 py-3 text-slate-600 font-medium">Status</th>
@@ -707,6 +982,11 @@ export default function ProductsPage() {
                   <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded-full">
                     {product.category.name}
                   </span>
+                </td>
+
+                {/* AI Score */}
+                <td className="px-4 py-3 text-center">
+                  <AiScoreBadge score={product.aiScore} />
                 </td>
 
                 {/* Price */}
@@ -792,6 +1072,14 @@ export default function ProductsPage() {
       )}
 
       {/* Modals */}
+      {cjOpen && (
+        <CJSearchModal
+          categories={categories}
+          onClose={() => setCjOpen(false)}
+          onSaved={() => { setCjOpen(false); load(page); }}
+        />
+      )}
+
       {importOpen && (
         <ImportModal
           categories={categories}

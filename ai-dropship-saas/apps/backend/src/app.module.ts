@@ -10,6 +10,7 @@ import { RealtimeGateway } from './websocket/realtime.gateway';
 import { QueueModule } from './queue/queue.module';
 import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
 import { ProductsModule } from './modules/products/products.module';
+import { ScraperModule } from './modules/scraper/scraper.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ProductsModule } from './modules/products/products.module';
     AutoPricingModule,
     OrchestratorModule,
     ProductsModule,
+    ScraperModule,
   ],
   providers: [RealtimeGateway],
 })

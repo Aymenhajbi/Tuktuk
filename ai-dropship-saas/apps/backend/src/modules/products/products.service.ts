@@ -55,7 +55,8 @@ export class ProductsService {
   }
 
   async create(dto: CreateProductDto) {
-    return this.prisma.product.create({ data: dto, include: { category: true } });
+    const aiScore = this.calculateAiScore(dto);
+    return this.prisma.product.create({ data: { ...dto, aiScore }, include: { category: true } });
   }
 
   async update(id: string, dto: Partial<CreateProductDto>) {
@@ -176,6 +177,41 @@ export class ProductsService {
     });
 
     return { message: 'Demo data seeded successfully', categories: categories.length, products: 10 };
+  }
+
+  private calculateAiScore(dto: Partial<CreateProductDto>): number {
+    let score = 40;
+
+    // Price sweet spot for UAE impulse buying (AED 30–400 = high conversion)
+    const p = Number(dto.price ?? 0);
+    if (p >= 50 && p <= 300) score += 15;
+    else if (p >= 30 && p <= 500) score += 8;
+    else if (p > 0) score += 3;
+
+    // Images (more = more trust)
+    score += Math.min((dto.images?.length ?? 0) * 3, 15);
+
+    // Has meaningful description
+    if ((dto.description?.length ?? 0) > 30) score += 5;
+
+    // Sale price set → promotion drives conversion
+    if (dto.salePrice && dto.salePrice < (dto.price ?? Infinity)) score += 8;
+
+    // Brand increases perceived value
+    if (dto.brand) score += 4;
+
+    // Stock availability
+    if ((dto.stock ?? 0) >= 50) score += 4;
+    else if ((dto.stock ?? 0) > 0) score += 2;
+
+    // Tags help with discoverability
+    score += Math.min((dto.tags?.length ?? 0), 5);
+
+    // Deterministic ±5 variance seeded from product name (same name = same score)
+    const hash = (dto.name ?? '').split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0);
+    score += (Math.abs(hash) % 11) - 5;
+
+    return Math.min(100, Math.max(1, Math.round(score)));
   }
 
   async importFromAliExpress(url: string) {

@@ -76,7 +76,26 @@ export interface AdminProduct {
   tags: string[];
   featured: boolean;
   active: boolean;
+  aiScore?: number;
+  sourceUrl?: string;
   createdAt: string;
+}
+
+export interface CJProduct {
+  cjId: string;
+  name: string;
+  images: string[];
+  supplierPriceUSD: number;
+  suggestedPriceAED: number;
+  categoryName: string;
+  warehouse: string;
+  shippingDays: string;
+  rating: number;
+}
+
+export interface CJSearchResult {
+  products: CJProduct[];
+  total: number;
 }
 
 export interface ProductsPage {
@@ -151,6 +170,8 @@ export const api = {
   updateProduct: (id: string, body: Partial<CreateProductBody>) => req<AdminProduct>('PUT', `/products/${id}`, body),
   deleteProduct: (id: string) => req('DELETE', `/products/${id}`),
   importAliExpress: (url: string) => req<AliExpressImport>('POST', '/products/import/aliexpress', { url }),
+  searchCJ: (keyword: string, warehouse?: string) =>
+    req<CJSearchResult>('POST', '/scraper/search-products', { keyword, warehouse }),
 
   // Categories
   listCategories: () => req<Category[]>('GET', '/categories'),
