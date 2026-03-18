@@ -17,6 +17,9 @@ RUN npm ci
 # Copy source and build
 COPY ai-dropship-saas/apps/storefront ./apps/storefront
 
+# Ensure public/ exists (Next.js standalone requires it even if empty)
+RUN mkdir -p apps/storefront/public
+
 RUN npm run build --workspace apps/storefront
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
