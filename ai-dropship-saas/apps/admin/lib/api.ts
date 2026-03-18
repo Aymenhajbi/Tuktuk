@@ -77,6 +77,7 @@ export interface AdminProduct {
   featured: boolean;
   active: boolean;
   aiScore?: number;
+  scoreBreakdown?: Record<string, number>;
   sourceUrl?: string;
   createdAt: string;
 }
@@ -113,6 +114,13 @@ export interface AliExpressImport {
   priceUSD: number;
   priceAED: number;
   sourceUrl: string;
+  sellerRating?: number;
+  orderCount?: number;
+  reviewCount?: number;
+  trendScore?: number;
+  keyword?: string;
+  aiScore?: number;
+  scoreBreakdown?: Record<string, number>;
 }
 
 export interface CreateProductBody {
@@ -128,6 +136,9 @@ export interface CreateProductBody {
   tags?: string[];
   featured?: boolean;
   active?: boolean;
+  sourceUrl?: string;
+  aiScore?: number;
+  scoreBreakdown?: Record<string, number>;
 }
 
 export interface ScoreProductBody {

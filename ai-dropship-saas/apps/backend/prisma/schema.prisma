@@ -310,8 +310,9 @@ model Product {
   tags        String[]
   featured    Boolean     @default(false)
   active      Boolean     @default(true)
-  aiScore     Float?
-  sourceUrl   String?
+  aiScore         Float?
+  scoreBreakdown  Json?
+  sourceUrl       String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   reviews     Review[]

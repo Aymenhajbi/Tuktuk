@@ -32,15 +32,40 @@ function ActiveBadge({ active }: { active: boolean }) {
     : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500"><XCircle size={10} />Inactive</span>;
 }
 
-function AiScoreBadge({ score }: { score?: number }) {
+function AiScoreBadge({ score, breakdown }: { score?: number; breakdown?: Record<string, number> }) {
+  const [show, setShow] = useState(false);
   if (score == null) return <span className="text-xs text-slate-300">—</span>;
   const color = score >= 80 ? 'bg-emerald-100 text-emerald-700'
     : score >= 65 ? 'bg-indigo-100 text-indigo-700'
     : score >= 50 ? 'bg-amber-100 text-amber-700'
     : 'bg-red-100 text-red-600';
+  const LABELS: Record<string, string> = {
+    trend: 'Trend', margin: 'Margin', supplier: 'Supplier', saturation: 'Saturation', bonus: 'Bonus',
+  };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${color}`}>
-      {score}
+    <span className="relative inline-block"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold cursor-default ${color}`}>
+        {score}
+      </span>
+      {show && breakdown && Object.keys(breakdown).length > 0 && (
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 bg-slate-900 text-white rounded-lg p-2.5 shadow-xl text-[11px] pointer-events-none">
+          <div className="font-semibold mb-1.5 text-slate-300">Score Breakdown</div>
+          {Object.entries(breakdown).map(([k, v]) => (
+            <div key={k} className="flex justify-between items-center py-0.5">
+              <span className="text-slate-400">{LABELS[k] ?? k}</span>
+              <span className="font-bold text-white">{v}</span>
+            </div>
+          ))}
+          <div className="border-t border-slate-700 mt-1.5 pt-1.5 flex justify-between">
+            <span className="text-slate-400">Total</span>
+            <span className="font-bold text-emerald-400">{score}</span>
+          </div>
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+        </div>
+      )}
     </span>
   );
 }
@@ -538,7 +563,8 @@ function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
   // Review form state (pre-filled from preview, fully editable)
   const [form, setForm] = useState<CreateProductBody & { imagesRaw: string; tagsRaw: string }>({
     ...{ name: '', description: '', price: 0, salePrice: undefined, images: [],
-         categoryId: '', brand: '', stock: 10, sku: '', tags: [], featured: false, active: true },
+         categoryId: '', brand: '', stock: 10, sku: '', tags: [], featured: false, active: true,
+         sourceUrl: undefined, aiScore: undefined, scoreBreakdown: undefined },
     imagesRaw: '',
     tagsRaw: '',
   });
@@ -565,6 +591,9 @@ function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
         stock: 10,
         active: true,
         featured: false,
+        sourceUrl: data.sourceUrl,
+        aiScore: data.aiScore,
+        scoreBreakdown: data.scoreBreakdown,
       }));
       setStep('review');
     } catch (err) {
@@ -592,6 +621,9 @@ function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
         tags: form.tagsRaw.split(',').map(s => s.trim()).filter(Boolean),
         featured: form.featured,
         active: form.active,
+        sourceUrl: form.sourceUrl,
+        aiScore: form.aiScore,
+        scoreBreakdown: form.scoreBreakdown,
       });
       onSaved();
     } catch (err) {
@@ -660,6 +692,37 @@ function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
               </span>
               <button type="button" onClick={() => setStep('url')} className="text-indigo-600 hover:underline font-medium">Try another URL</button>
             </div>
+
+            {/* AI Score panel */}
+            {preview.aiScore != null && (
+              <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-xs">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-semibold text-slate-700">AI Winning Score</span>
+                  <AiScoreBadge score={preview.aiScore} breakdown={preview.scoreBreakdown} />
+                </div>
+                {preview.scoreBreakdown && (
+                  <div className="grid grid-cols-5 gap-1 text-center">
+                    {Object.entries(preview.scoreBreakdown).map(([k, v]) => {
+                      const labels: Record<string, string> = { trend: 'Trend', margin: 'Margin', supplier: 'Supplier', saturation: 'Saturation', bonus: 'Bonus' };
+                      return (
+                        <div key={k} className="bg-white rounded border border-slate-100 p-1.5">
+                          <div className="text-slate-400 text-[10px]">{labels[k] ?? k}</div>
+                          <div className="font-bold text-slate-800">{v}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {(preview.sellerRating || preview.orderCount || preview.trendScore != null) && (
+                  <div className="flex gap-3 mt-2 text-slate-500">
+                    {preview.sellerRating != null && <span>Seller: <strong className="text-slate-700">{preview.sellerRating.toFixed(1)}★</strong></span>}
+                    {preview.orderCount != null && <span>Orders: <strong className="text-slate-700">{preview.orderCount.toLocaleString()}</strong></span>}
+                    {preview.trendScore != null && <span>Trend: <strong className="text-slate-700">{preview.trendScore.toFixed(0)}/100</strong></span>}
+                    {preview.keyword && <span>Keyword: <strong className="text-slate-700">{preview.keyword}</strong></span>}
+                  </div>
+                )}
+              </div>
+            )}
 
             {saveError && (
               <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
@@ -986,7 +1049,7 @@ export default function ProductsPage() {
 
                 {/* AI Score */}
                 <td className="px-4 py-3 text-center">
-                  <AiScoreBadge score={product.aiScore} />
+                  <AiScoreBadge score={product.aiScore} breakdown={product.scoreBreakdown} />
                 </td>
 
                 {/* Price */}

@@ -55,10 +55,16 @@ export class ProductsService {
   }
 
   async create(dto: CreateProductDto) {
-    const aiScore = this.calculateAiScore(dto);
-    // Normalize empty SKU → generate unique one so the unique constraint is never hit
+    // Use pre-calculated aiScore from AliExpress import if provided, else compute heuristically
+    const { score, breakdown } = dto.aiScore !== undefined
+      ? { score: dto.aiScore, breakdown: dto.scoreBreakdown ?? {} }
+      : this.calculateAiScore(dto);
     const sku = dto.sku?.trim() || `IMP-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-    return this.prisma.product.create({ data: { ...dto, sku, aiScore }, include: { category: true } });
+    const { aiScore: _a, scoreBreakdown: _b, ...rest } = dto;
+    return this.prisma.product.create({
+      data: { ...rest, sku, aiScore: score, scoreBreakdown: breakdown },
+      include: { category: true },
+    });
   }
 
   async update(id: string, dto: Partial<CreateProductDto>) {
@@ -189,40 +195,201 @@ export class ProductsService {
     return { message: 'Demo data seeded successfully', categories: categories.length, products: 10 };
   }
 
-  private calculateAiScore(dto: Partial<CreateProductDto>): number {
-    let score = 40;
+  // ─── AI Score ─────────────────────────────────────────────────────────────
 
-    // Price sweet spot for UAE impulse buying (AED 30–400 = high conversion)
-    const p = Number(dto.price ?? 0);
-    if (p >= 50 && p <= 300) score += 15;
-    else if (p >= 30 && p <= 500) score += 8;
-    else if (p > 0) score += 3;
+  private calculateAiScore(
+    dto: Partial<CreateProductDto>,
+    signals?: { sellerRating: number; orderCount: number; trendScore: number; reviewCount: number },
+  ): { score: number; breakdown: Record<string, number> } {
+    // 1. Trend velocity (0–25 pts) — real Google Trends or heuristic fallback
+    const trendRaw = signals?.trendScore ?? this.hashBasedTrend(dto.name ?? '');
+    const trend = Math.round(trendRaw * 0.25);
 
-    // Images (more = more trust)
-    score += Math.min((dto.images?.length ?? 0) * 3, 15);
+    // 2. Margin potential (0–20 pts)
+    const salePrice = dto.salePrice ?? dto.price ?? 0;
+    const costPrice = salePrice / 2.5; // reverse 2.5× UAE markup
+    const marginPct = salePrice > 0 ? ((salePrice - costPrice) / salePrice) * 100 : 60;
+    const margin = Math.round(Math.min(marginPct, 100) * 0.20);
 
-    // Has meaningful description
-    if ((dto.description?.length ?? 0) > 30) score += 5;
+    // 3. Supplier reliability (0–20 pts) — real seller rating or neutral default
+    const rating = signals?.sellerRating ?? 0;
+    const supplier = rating > 0 ? Math.round(Math.min(rating * 4, 20)) : 10;
 
-    // Sale price set → promotion drives conversion
-    if (dto.salePrice && dto.salePrice < (dto.price ?? Infinity)) score += 8;
+    // 4. Market saturation (0–20 pts) — more orders = more saturated = lower score
+    const orders = signals?.orderCount ?? 0;
+    const satPct = orders > 0 ? Math.max(0, 100 - orders / 500) : 65;
+    const saturation = Math.round(satPct * 0.20);
 
-    // Brand increases perceived value
-    if (dto.brand) score += 4;
+    // 5. Quality bonus (0–15 pts)
+    let bonus = 0;
+    if ((dto.images?.length ?? 0) >= 3) bonus += 4;
+    if ((dto.description?.length ?? 0) > 50) bonus += 3;
+    if (dto.salePrice && dto.salePrice < (dto.price ?? Infinity)) bonus += 4;
+    if ((signals?.reviewCount ?? 0) > 100) bonus += 2;
+    if (dto.brand) bonus += 2;
 
-    // Stock availability
-    if ((dto.stock ?? 0) >= 50) score += 4;
-    else if ((dto.stock ?? 0) > 0) score += 2;
-
-    // Tags help with discoverability
-    score += Math.min((dto.tags?.length ?? 0), 5);
-
-    // Deterministic ±5 variance seeded from product name (same name = same score)
-    const hash = (dto.name ?? '').split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0);
-    score += (Math.abs(hash) % 11) - 5;
-
-    return Math.min(100, Math.max(1, Math.round(score)));
+    const score = Math.min(100, Math.max(1, trend + margin + supplier + saturation + bonus));
+    return { score, breakdown: { trend, margin, supplier, saturation, bonus } };
   }
+
+  private hashBasedTrend(name: string): number {
+    const hash = name.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0);
+    return 35 + (Math.abs(hash) % 30); // 35–65 stable estimate
+  }
+
+  // ─── Keyword extraction ───────────────────────────────────────────────────
+
+  private extractKeyword(name: string): string {
+    const STOP = new Set([
+      'the','a','an','and','or','for','with','in','of','to','set','pack',
+      'pcs','pc','piece','pieces','lot','new','hot','best','top','free',
+      'shipping','2024','2025','from','high','quality','portable','mini',
+    ]);
+    return name
+      .toLowerCase()
+      .replace(/\d+%?\s*(off|sale|discount)?/gi, '')          // strip "40% off"
+      .replace(/\d+\s*x\s*\d+\s*\w*/gi, '')                  // strip "30x40cm"
+      .replace(/\d+\s*(ml|g|kg|cm|mm|inch|oz|lb|w|v|mah)\b/gi, '') // strip specs
+      .split(/[\s,;:&|()+\-\/\\]+/)
+      .filter(w => w.length > 2 && !STOP.has(w) && !/^\d+$/.test(w))
+      .slice(0, 3)
+      .join(' ')
+      .trim();
+  }
+
+  // ─── Google Trends ────────────────────────────────────────────────────────
+
+  private async getGoogleTrendsScore(keyword: string): Promise<number> {
+    if (!keyword) return this.hashBasedTrend(keyword);
+    try {
+      // Step 1: get widget token from explore endpoint
+      const reqParam = JSON.stringify({
+        comparisonItem: [{ keyword, geo: 'AE', time: 'now 7-d' }],
+        category: 0,
+        property: '',
+      });
+      const exploreUrl = `https://trends.google.com/trends/api/explore?hl=en-US&tz=-180&req=${encodeURIComponent(reqParam)}`;
+
+      const ac1 = new AbortController();
+      const t1 = setTimeout(() => ac1.abort(), 8000);
+      const exploreRes = await fetch(exploreUrl, {
+        signal: ac1.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': 'https://trends.google.com/',
+        },
+      });
+      clearTimeout(t1);
+      if (!exploreRes.ok) return this.hashBasedTrend(keyword);
+
+      const exploreText = await exploreRes.text();
+      const exploreJson = JSON.parse(exploreText.replace(/^\)\]\}'\n/, '')) as {
+        widgets?: Array<{ id: string; token: string; request: unknown }>;
+      };
+
+      const tsWidget = exploreJson.widgets?.find(w => w.id === 'TIMESERIES');
+      if (!tsWidget) return this.hashBasedTrend(keyword);
+
+      // Step 2: fetch actual interest-over-time data
+      const multilineUrl =
+        `https://trends.google.com/trends/api/widgetdata/multiline` +
+        `?hl=en-US&tz=-180` +
+        `&req=${encodeURIComponent(JSON.stringify(tsWidget.request))}` +
+        `&token=${encodeURIComponent(tsWidget.token)}`;
+
+      const ac2 = new AbortController();
+      const t2 = setTimeout(() => ac2.abort(), 8000);
+      const dataRes = await fetch(multilineUrl, {
+        signal: ac2.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Referer': 'https://trends.google.com/',
+        },
+      });
+      clearTimeout(t2);
+      if (!dataRes.ok) return this.hashBasedTrend(keyword);
+
+      const dataText = await dataRes.text();
+      const dataJson = JSON.parse(dataText.replace(/^\)\]\}'\n/, '')) as {
+        default?: { timelineData?: Array<{ value: number[] }> };
+      };
+
+      const timeline = dataJson?.default?.timelineData ?? [];
+      const values = timeline.map(p => p.value[0]).filter(v => typeof v === 'number' && !isNaN(v));
+      if (!values.length) return this.hashBasedTrend(keyword);
+
+      const avg = values.reduce((a, b) => a + b, 0) / values.length;
+      return Math.round(Math.min(100, Math.max(0, avg)));
+    } catch {
+      // Google blocked, rate-limited, or parse failed — fall back to hash estimate
+      return this.hashBasedTrend(keyword);
+    }
+  }
+
+  // ─── AliExpress seller signal extraction ─────────────────────────────────
+
+  private extractSellerData(html: string): { sellerRating: number; orderCount: number; reviewCount: number } {
+    let sellerRating = 0;
+    let orderCount = 0;
+    let reviewCount = 0;
+
+    // Seller rating — AliExpress stores positive feedback % in several places
+    const ratingPatterns = [
+      /"sellerPositiveFeedbackScore":\s*"?([\d.]+)"?/,
+      /"positiveRate":\s*"?([\d.]+)"?/,
+      /"feedbackScore":\s*"?([\d.]+)"?/,
+      /"sellerFeedbackPercent":\s*"?([\d.]+)"?/,
+    ];
+    for (const re of ratingPatterns) {
+      const m = html.match(re);
+      if (m) {
+        const v = parseFloat(m[1]);
+        if (v > 0) {
+          // Value is already 0-5 or a percentage 0-100 → normalise to 0-5
+          sellerRating = v > 5 ? parseFloat((v / 20).toFixed(2)) : v;
+          break;
+        }
+      }
+    }
+
+    // Order count
+    const orderPatterns = [
+      /"tradeCount":\s*"?(\d[\d,]*)"?/,
+      /"orders":\s*"?(\d[\d,]*)"?/,
+      /"soldCount":\s*(\d+)/,
+      /([\d,]+)\+?\s+(?:sold|orders)/i,
+    ];
+    for (const re of orderPatterns) {
+      const m = html.match(re);
+      if (m) {
+        const v = parseInt(m[1].replace(/,/g, ''), 10);
+        if (v > 0) { orderCount = v; break; }
+      }
+    }
+
+    // Review count
+    const reviewPatterns = [
+      /"reviewCount":\s*(\d+)/,
+      /"totalValidNum":\s*(\d+)/,
+      /"feedbackCount":\s*(\d+)/,
+      /"ratingCount":\s*(\d+)/,
+      /"totalStarNum":\s*(\d+)/,
+    ];
+    for (const re of reviewPatterns) {
+      const m = html.match(re);
+      if (m) {
+        const v = parseInt(m[1], 10);
+        if (v >= 0) { reviewCount = v; break; }
+      }
+    }
+
+    return { sellerRating, orderCount, reviewCount };
+  }
+
+  // ─── AliExpress import ────────────────────────────────────────────────────
 
   async importFromAliExpress(url: string) {
     if (!/aliexpress\.(com|us)\/item\//i.test(url)) {
@@ -251,7 +418,6 @@ export class ProductsService {
 
     // — Name —
     let name = this.extractOGMeta(html, 'og:title') || this.extractTitle(html) || '';
-    // Clean AliExpress noise: "40% OFF | Product Name | Store – AliExpress"
     name = name
       .replace(/^\d+%?\s*(?:OFF|off)\s*[|│]\s*/g, '')
       .replace(/\s*[|│].*$/, '')
@@ -268,7 +434,6 @@ export class ProductsService {
     const images: string[] = [];
     const ogImg = this.extractOGMeta(html, 'og:image');
     if (ogImg) images.push(ogImg.startsWith('//') ? `https:${ogImg}` : ogImg);
-
     const imgListMatch = html.match(/"imagePathList"\s*:\s*(\["[^"]*"(?:\s*,\s*"[^"]*")*\])/);
     if (imgListMatch) {
       try {
@@ -280,7 +445,7 @@ export class ProductsService {
       } catch { /* ignore */ }
     }
 
-    // — Price (USD) — try multiple extraction patterns
+    // — Price (USD) —
     let priceUSD = 0;
     const pricePatterns = [
       /"formatedAmount"\s*:\s*"([^"]+)"/,
@@ -296,11 +461,41 @@ export class ProductsService {
         if (parsed > 0) { priceUSD = parsed; break; }
       }
     }
-
-    // UAE retail price = supplier USD cost × FX (3.67) × 2.5× markup
     const priceAED = priceUSD > 0 ? Math.round(priceUSD * 3.67 * 2.5) : 0;
 
-    return { name, description, images: images.slice(0, 8), priceUSD, priceAED, sourceUrl: url };
+    // — Real supplier signals —
+    const { sellerRating, orderCount, reviewCount } = this.extractSellerData(html);
+
+    // — Google Trends (UAE region, with fallback) —
+    const keyword = this.extractKeyword(name);
+    const trendScore = await this.getGoogleTrendsScore(keyword);
+
+    // — AI Score with real signals —
+    const dtoLike = { name, description, images, price: priceAED, salePrice: priceAED };
+    const { score: aiScore, breakdown: scoreBreakdown } = this.calculateAiScore(dtoLike, {
+      sellerRating,
+      orderCount,
+      trendScore,
+      reviewCount,
+    });
+
+    return {
+      name,
+      description,
+      images: images.slice(0, 8),
+      priceUSD,
+      priceAED,
+      sourceUrl: url,
+      // Real signals
+      sellerRating,
+      orderCount,
+      reviewCount,
+      trendScore,
+      keyword,
+      // Pre-calculated score
+      aiScore,
+      scoreBreakdown,
+    };
   }
 
   private extractOGMeta(html: string, property: string): string {

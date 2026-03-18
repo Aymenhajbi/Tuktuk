@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { api, AdminOrder } from '../../lib/api';
-import AdminShell from '../../components/AdminShell';
+
 import { RefreshCw, ChevronDown } from 'lucide-react';
 
 type Status = AdminOrder['status'];
@@ -193,5 +193,5 @@ function OrdersContent() {
 }
 
 export default function OrdersPage() {
-  return <AdminShell><OrdersContent /></AdminShell>;
+  return <OrdersContent />;
 }

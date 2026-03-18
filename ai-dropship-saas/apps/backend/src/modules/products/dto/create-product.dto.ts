@@ -1,6 +1,6 @@
 import {
   IsString, IsNotEmpty, IsOptional, IsNumber, IsPositive,
-  IsArray, IsBoolean, Min,
+  IsArray, IsBoolean, Min, IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -63,4 +63,15 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   sourceUrl?: string;
+
+  // Pre-calculated score from AliExpress import (skips server recalculation)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  aiScore?: number;
+
+  @IsOptional()
+  @IsObject()
+  scoreBreakdown?: Record<string, number>;
 }
