@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { HealthController } from './health/health.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { WinningEngineModule } from './modules/winning-engine/winning-engine.module';
 import { CompetitorIntelligenceModule } from './modules/competitor-intelligence/competitor-intelligence.module';
@@ -28,6 +29,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
     ScraperModule,
     PaymentsModule,
   ],
+  controllers: [HealthController],
   providers: [RealtimeGateway],
 })
 export class AppModule {}

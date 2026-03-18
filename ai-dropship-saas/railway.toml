@@ -1,0 +1,22 @@
+# ── Railway Deployment Configuration ──────────────────────────────────────────
+# This monorepo deploys as 3 separate Railway services.
+# In the Railway dashboard, create one service per app and set:
+#   "Root Directory" = (leave empty — build context is repo root)
+#   "Dockerfile Path" = the path below for each service
+#
+#  Service          | Dockerfile Path
+#  tuktuk-backend   | apps/backend/Dockerfile
+#  tuktuk-admin     | apps/admin/Dockerfile
+#  tuktuk-storefront| apps/storefront/Dockerfile
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Backend service config (used when RAILWAY_SERVICE_NAME=tuktuk-backend) ───
+[build]
+builder = "dockerfile"
+dockerfilePath = "apps/backend/Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "always"
+numReplicas = 1
