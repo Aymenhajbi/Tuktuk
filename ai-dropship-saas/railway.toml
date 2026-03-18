@@ -5,15 +5,15 @@
 #   "Dockerfile Path" = the path below for each service
 #
 #  Service          | Dockerfile Path
-#  tuktuk-backend   | apps/backend/Dockerfile
-#  tuktuk-admin     | apps/admin/Dockerfile
-#  tuktuk-storefront| apps/storefront/Dockerfile
+#  tuktuk-backend   | ai-dropship-saas/apps/backend/Dockerfile
+#  tuktuk-admin     | ai-dropship-saas/apps/admin/Dockerfile
+#  tuktuk-storefront| ai-dropship-saas/apps/storefront/Dockerfile
 # ──────────────────────────────────────────────────────────────────────────────
 
-# ── Backend service config (used when RAILWAY_SERVICE_NAME=tuktuk-backend) ───
+# ── Backend service config (default — override per service in Railway UI) ─────
 [build]
 builder = "dockerfile"
-dockerfilePath = "apps/backend/Dockerfile"
+dockerfilePath = "ai-dropship-saas/apps/backend/Dockerfile"
 
 [deploy]
 healthcheckPath = "/health"

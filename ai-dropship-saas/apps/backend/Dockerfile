@@ -1,4 +1,5 @@
 # ── Stage 1: Build ────────────────────────────────────────────────────────────
+# Build context is the repo root (one level above ai-dropship-saas/)
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -6,16 +7,16 @@ WORKDIR /app
 RUN apk add --no-cache openssl openssl-dev libc6-compat
 
 # Install dependencies first (better layer caching)
-COPY package*.json ./
-COPY apps/backend/package.json ./apps/backend/
-COPY packages ./packages
+COPY ai-dropship-saas/package*.json ./
+COPY ai-dropship-saas/apps/backend/package.json ./apps/backend/
+COPY ai-dropship-saas/packages ./packages
 RUN npm ci
 
 # Copy source and build
-COPY apps/backend/src ./apps/backend/src
-COPY apps/backend/tsconfig.json ./apps/backend/
-COPY apps/backend/nest-cli.json ./apps/backend/
-COPY apps/backend/prisma ./apps/backend/prisma
+COPY ai-dropship-saas/apps/backend/src ./apps/backend/src
+COPY ai-dropship-saas/apps/backend/tsconfig.json ./apps/backend/
+COPY ai-dropship-saas/apps/backend/nest-cli.json ./apps/backend/
+COPY ai-dropship-saas/apps/backend/prisma ./apps/backend/prisma
 
 RUN npm run prisma:generate --workspace apps/backend
 RUN npm run build --workspace apps/backend
@@ -30,9 +31,9 @@ RUN apk add --no-cache dumb-init openssl openssl-dev libc6-compat
 ENV NODE_ENV=production
 
 # Install production dependencies only
-COPY package*.json ./
-COPY apps/backend/package.json ./apps/backend/
-COPY packages ./packages
+COPY ai-dropship-saas/package*.json ./
+COPY ai-dropship-saas/apps/backend/package.json ./apps/backend/
+COPY ai-dropship-saas/packages ./packages
 RUN npm ci --omit=dev --ignore-scripts
 
 # Copy Prisma engine binaries and generated client from builder
