@@ -241,9 +241,17 @@ export class ProductsService {
 
   private extractKeyword(name: string): string {
     const STOP = new Set([
-      'the','a','an','and','or','for','with','in','of','to','set','pack',
-      'pcs','pc','piece','pieces','lot','new','hot','best','top','free',
-      'shipping','2024','2025','from','high','quality','portable','mini',
+      // articles / conjunctions / prepositions
+      'the','a','an','and','or','for','with','in','of','to','from','by','at',
+      // generic product words (these add no search value)
+      'brand','case','kit','pack','set','cover','bag','box','type','style',
+      'pcs','pc','piece','pieces','pair','lot','item','items',
+      // quality / marketing noise
+      'new','hot','best','top','free','cheap','sale','good','nice','cool',
+      'high','quality','premium','luxury','original','genuine','official',
+      'portable','mini','super','ultra','pro','plus','max','lite',
+      // time / shipping noise
+      'shipping','delivery','fast','2024','2025','latest',
     ]);
     return name
       .toLowerCase()
@@ -331,61 +339,121 @@ export class ProductsService {
 
   // ─── AliExpress seller signal extraction ─────────────────────────────────
 
+  /** Pull first regex match > threshold from a string. Returns 0 on miss. */
+  private firstMatch(html: string, patterns: RegExp[], threshold = 0): number {
+    for (const re of patterns) {
+      const m = html.match(re);
+      if (m) {
+        const v = parseFloat(m[1].replace(/,/g, ''));
+        if (!isNaN(v) && v > threshold) return v;
+      }
+    }
+    return 0;
+  }
+
+  /** Safe deep-get on an unknown JSON object, returns undefined on any miss. */
+  private deepGet(obj: unknown, ...keys: string[]): unknown {
+    let cur = obj;
+    for (const k of keys) {
+      if (cur == null || typeof cur !== 'object') return undefined;
+      cur = (cur as Record<string, unknown>)[k];
+    }
+    return cur;
+  }
+
   private extractSellerData(html: string): { sellerRating: number; orderCount: number; reviewCount: number } {
+    // ── Diagnostics ──────────────────────────────────────────────────────────
+    console.log('[AliExpress] HTML length:', html.length);
+    const hasRunParams  = html.includes('window.runParams');
+    const hasTradeCount = html.includes('tradeCount');
+    const hasSellerKey  = html.includes('sellerScore') || html.includes('sellerFeedback') || html.includes('positiveRate');
+    console.log('[AliExpress] Keys — runParams:', hasRunParams, 'tradeCount:', hasTradeCount, 'sellerKey:', hasSellerKey);
+
+    // ── Strategy 1: parse window.runParams JSON ──────────────────────────────
+    // When AliExpress serves a full page the object looks like:
+    // window.runParams = { data: { sellerComponent:{sellerScore,sellerFeedbackScore},
+    //                               tradeComponent:{tradeCount,formatTradeCount},
+    //                               feedbackComponent:{totalValidNum,star} } }
     let sellerRating = 0;
-    let orderCount = 0;
-    let reviewCount = 0;
+    let orderCount   = 0;
+    let reviewCount  = 0;
 
-    // Seller rating — AliExpress stores positive feedback % in several places
-    const ratingPatterns = [
-      /"sellerPositiveFeedbackScore":\s*"?([\d.]+)"?/,
-      /"positiveRate":\s*"?([\d.]+)"?/,
-      /"feedbackScore":\s*"?([\d.]+)"?/,
-      /"sellerFeedbackPercent":\s*"?([\d.]+)"?/,
-    ];
-    for (const re of ratingPatterns) {
-      const m = html.match(re);
-      if (m) {
-        const v = parseFloat(m[1]);
-        if (v > 0) {
-          // Value is already 0-5 or a percentage 0-100 → normalise to 0-5
-          sellerRating = v > 5 ? parseFloat((v / 20).toFixed(2)) : v;
-          break;
+    const rpMatch = html.match(/window\.runParams\s*=\s*(\{[\s\S]*?\});\s*(?:window\.|\/\/|$)/);
+    if (rpMatch) {
+      try {
+        const rp = JSON.parse(rpMatch[1]) as Record<string, unknown>;
+        const data = (rp['data'] ?? rp) as Record<string, unknown>;
+
+        // Seller rating (percentage 0-100 → 0-5)
+        const sc = this.deepGet(data, 'sellerComponent');
+        if (sc) {
+          const raw =
+            Number(this.deepGet(sc, 'sellerFeedbackScore') ?? 0) ||
+            Number(this.deepGet(sc, 'sellerScore') ?? 0) ||
+            Number(this.deepGet(sc, 'positiveRate') ?? 0);
+          if (raw > 0) sellerRating = parseFloat((raw > 5 ? raw / 20 : raw).toFixed(2));
         }
+
+        // Order count
+        const tc = this.deepGet(data, 'tradeComponent') as Record<string, unknown> | undefined;
+        if (tc) {
+          const raw =
+            parseInt(String(this.deepGet(tc, 'tradeCount') ?? '0').replace(/[^\d]/g, ''), 10) ||
+            parseInt(String(this.deepGet(tc, 'formatTradeCount') ?? '0').replace(/[^\d]/g, ''), 10);
+          if (raw > 0) orderCount = raw;
+        }
+
+        // Review count
+        const fc = this.deepGet(data, 'feedbackComponent') as Record<string, unknown> | undefined;
+        if (fc) {
+          const raw =
+            parseInt(String(this.deepGet(fc, 'totalValidNum') ?? '0'), 10) ||
+            parseInt(String(this.deepGet(fc, 'totalStarNum') ?? '0'), 10);
+          if (raw > 0) reviewCount = raw;
+        }
+
+        console.log('[AliExpress] runParams parse — sellerRating:', sellerRating, 'orderCount:', orderCount, 'reviewCount:', reviewCount);
+      } catch {
+        console.log('[AliExpress] runParams parse failed — falling back to regex');
       }
     }
 
-    // Order count
-    const orderPatterns = [
-      /"tradeCount":\s*"?(\d[\d,]*)"?/,
-      /"orders":\s*"?(\d[\d,]*)"?/,
-      /"soldCount":\s*(\d+)/,
-      /([\d,]+)\+?\s+(?:sold|orders)/i,
-    ];
-    for (const re of orderPatterns) {
-      const m = html.match(re);
-      if (m) {
-        const v = parseInt(m[1].replace(/,/g, ''), 10);
-        if (v > 0) { orderCount = v; break; }
-      }
+    // ── Strategy 2: broad regex fallback (CSR / partial pages) ──────────────
+    if (sellerRating === 0) {
+      const raw = this.firstMatch(html, [
+        /"sellerScore":\s*"?([\d.]+)"?/,
+        /"tradeScore":\s*"?([\d.]+)"?/,
+        /"sellerFeedbackScore":\s*"?([\d.]+)"?/,
+        /"positiveRate":\s*"?([\d.]+)"?/,
+        /"feedbackPositive":\s*"?([\d.]+)"?/,
+        /"sellerFeedbackPercent":\s*"?([\d.]+)"?/,
+        /([\d.]+)%\s*positive\s*feedback/i,
+      ]);
+      if (raw > 0) sellerRating = parseFloat((raw > 5 ? raw / 20 : raw).toFixed(2));
     }
 
-    // Review count
-    const reviewPatterns = [
-      /"reviewCount":\s*(\d+)/,
-      /"totalValidNum":\s*(\d+)/,
-      /"feedbackCount":\s*(\d+)/,
-      /"ratingCount":\s*(\d+)/,
-      /"totalStarNum":\s*(\d+)/,
-    ];
-    for (const re of reviewPatterns) {
-      const m = html.match(re);
-      if (m) {
-        const v = parseInt(m[1], 10);
-        if (v >= 0) { reviewCount = v; break; }
-      }
+    if (orderCount === 0) {
+      orderCount = Math.round(this.firstMatch(html, [
+        /"tradeCount":\s*"?([\d,]+)"?/,
+        /"formatTradeCount":\s*"?([\d,]+)"?/,
+        /"soldCount":\s*"?([\d,]+)"?/,
+        /"orderCount":\s*(\d+)/,
+        /([\d,]+)\+?\s*(?:sold|orders)/i,
+      ]));
     }
 
+    if (reviewCount === 0) {
+      reviewCount = Math.round(this.firstMatch(html, [
+        /"totalEvaluation":\s*(\d+)/,
+        /"totalValidNum":\s*(\d+)/,
+        /"totalStarNum":\s*(\d+)/,
+        /"feedbackCount":\s*(\d+)/,
+        /"reviewCount":\s*(\d+)/,
+        /"evaluationCount":\s*(\d+)/,
+      ]));
+    }
+
+    console.log('[AliExpress] Final signals — sellerRating:', sellerRating, 'orderCount:', orderCount, 'reviewCount:', reviewCount);
     return { sellerRating, orderCount, reviewCount };
   }
 
