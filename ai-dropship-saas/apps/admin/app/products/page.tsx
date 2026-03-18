@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, AdminProduct, AliExpressImport, Category, CJProduct, CreateProductBody } from '../../lib/api';
 import {
   Plus, Pencil, Trash2, Search, X, Loader2, AlertCircle,
@@ -553,6 +553,41 @@ interface ImportModalProps {
   onSaved: () => void;
 }
 
+// ─── client-side score calculator (mirrors backend calculateAiScore) ──────────
+
+function calcAiScore(
+  f: { price: number | string; salePrice?: number | string; description?: string; brand?: string; imagesRaw: string },
+  sellerRating: number,
+  orderCount: number,
+  reviewCount: number,
+  trendScore: number,
+): { score: number; breakdown: Record<string, number> } {
+  const trend = Math.round(trendScore * 0.25);
+
+  const saleP = Number(f.salePrice) || Number(f.price) || 0;
+  const costP = saleP / 2.5;
+  const marginPct = saleP > 0 ? ((saleP - costP) / saleP) * 100 : 60;
+  const margin = Math.round(Math.min(marginPct, 100) * 0.20);
+
+  const supplier = sellerRating > 0 ? Math.round(Math.min(sellerRating * 4, 20)) : 10;
+
+  const satPct = orderCount > 0 ? Math.max(0, 100 - orderCount / 500) : 65;
+  const saturation = Math.round(satPct * 0.20);
+
+  let bonus = 0;
+  const imgs = f.imagesRaw.split('\n').filter(Boolean);
+  if (imgs.length >= 3) bonus += 4;
+  if ((f.description?.length ?? 0) > 50) bonus += 3;
+  if (f.salePrice && Number(f.salePrice) < Number(f.price)) bonus += 4;
+  if (reviewCount > 100) bonus += 2;
+  if (f.brand) bonus += 2;
+
+  const score = Math.min(100, Math.max(1, trend + margin + supplier + saturation + bonus));
+  return { score, breakdown: { trend, margin, supplier, saturation, bonus } };
+}
+
+// ─── AliExpress import modal ──────────────────────────────────────────────────
+
 function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
   const [step, setStep] = useState<'url' | 'review'>('url');
   const [url, setUrl] = useState('');
@@ -562,16 +597,28 @@ function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
 
   // Review form state (pre-filled from preview, fully editable)
   const [form, setForm] = useState<CreateProductBody & { imagesRaw: string; tagsRaw: string }>({
-    ...{ name: '', description: '', price: 0, salePrice: undefined, images: [],
-         categoryId: '', brand: '', stock: 10, sku: '', tags: [], featured: false, active: true,
-         sourceUrl: undefined, aiScore: undefined, scoreBreakdown: undefined },
-    imagesRaw: '',
-    tagsRaw: '',
+    name: '', description: '', price: 0, salePrice: undefined, images: [],
+    categoryId: '', brand: '', stock: 10, sku: '', tags: [], featured: false, active: true,
+    sourceUrl: undefined, aiScore: undefined, scoreBreakdown: undefined,
+    imagesRaw: '', tagsRaw: '',
   });
-  const [saving, setSaving] = useState(false);
+
+  // Manually editable supplier signals — pre-filled from scrape (often 0), admin can correct
+  const [sellerRating, setSellerRating] = useState(0);
+  const [orderCount, setOrderCount]     = useState(0);
+
+  const [saving, setSaving]     = useState(false);
   const [saveError, setSaveError] = useState('');
 
   const setF = (field: string, value: unknown) => setForm(f => ({ ...f, [field]: value }));
+
+  // Live score — recalculates whenever form fields or supplier signals change
+  const liveScore = useMemo(
+    () => calcAiScore(form, sellerRating, orderCount, preview?.reviewCount ?? 0, preview?.trendScore ?? 50),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form.price, form.salePrice, form.description, form.brand, form.imagesRaw,
+     sellerRating, orderCount, preview?.reviewCount, preview?.trendScore],
+  );
 
   const handleExtract = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -580,6 +627,8 @@ function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
     try {
       const data = await api.importAliExpress(url.trim());
       setPreview(data);
+      setSellerRating(data.sellerRating ?? 0);
+      setOrderCount(data.orderCount ?? 0);
       setForm(f => ({
         ...f,
         name: data.name,
@@ -592,8 +641,6 @@ function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
         active: true,
         featured: false,
         sourceUrl: data.sourceUrl,
-        aiScore: data.aiScore,
-        scoreBreakdown: data.scoreBreakdown,
       }));
       setStep('review');
     } catch (err) {
@@ -622,8 +669,9 @@ function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
         featured: form.featured,
         active: form.active,
         sourceUrl: form.sourceUrl,
-        aiScore: form.aiScore,
-        scoreBreakdown: form.scoreBreakdown,
+        // Use live (admin-corrected) score
+        aiScore: liveScore.score,
+        scoreBreakdown: liveScore.breakdown,
       });
       onSaved();
     } catch (err) {
@@ -635,6 +683,7 @@ function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
 
   const inputCls = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400';
   const labelCls = 'block text-xs font-medium text-slate-500 mb-1';
+  const SCORE_LABELS: Record<string, string> = { trend: 'Trend', margin: 'Margin', supplier: 'Supplier', saturation: 'Saturation', bonus: 'Bonus' };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -656,17 +705,14 @@ function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
             <div>
               <label className={labelCls}>AliExpress Product URL</label>
               <input
-                required
-                value={url}
-                onChange={e => setUrl(e.target.value)}
+                required value={url} onChange={e => setUrl(e.target.value)}
                 placeholder="https://www.aliexpress.com/item/1005006xxxxxx.html"
                 className={inputCls}
               />
             </div>
             {extractError && (
               <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-                <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                <span>{extractError}</span>
+                <AlertCircle size={14} className="mt-0.5 shrink-0" /><span>{extractError}</span>
               </div>
             )}
             <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg px-4 py-3">
@@ -688,41 +734,64 @@ function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
             <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 text-xs text-indigo-800 flex items-center justify-between">
               <span>
                 Extracted from AliExpress
-                {preview.priceUSD > 0 && <> · Supplier cost <strong>${preview.priceUSD.toFixed(2)} USD</strong> → <strong>AED {preview.priceAED}</strong> retail (2.5×)</>}
+                {preview.priceUSD > 0 && <> · Supplier <strong>${preview.priceUSD.toFixed(2)} USD</strong> → <strong>AED {preview.priceAED}</strong> (2.5×)</>}
+                {preview.keyword && <> · Keyword: <strong>{preview.keyword}</strong></>}
+                {preview.trendScore != null && <> · Trend: <strong>{preview.trendScore.toFixed(0)}/100</strong></>}
               </span>
-              <button type="button" onClick={() => setStep('url')} className="text-indigo-600 hover:underline font-medium">Try another URL</button>
+              <button type="button" onClick={() => setStep('url')} className="text-indigo-600 hover:underline font-medium shrink-0 ml-2">Try another URL</button>
             </div>
 
-            {/* AI Score panel */}
-            {preview.aiScore != null && (
-              <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-xs">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-semibold text-slate-700">AI Winning Score</span>
-                  <AiScoreBadge score={preview.aiScore} breakdown={preview.scoreBreakdown} />
-                </div>
-                {preview.scoreBreakdown && (
-                  <div className="grid grid-cols-5 gap-1 text-center">
-                    {Object.entries(preview.scoreBreakdown).map(([k, v]) => {
-                      const labels: Record<string, string> = { trend: 'Trend', margin: 'Margin', supplier: 'Supplier', saturation: 'Saturation', bonus: 'Bonus' };
-                      return (
-                        <div key={k} className="bg-white rounded border border-slate-100 p-1.5">
-                          <div className="text-slate-400 text-[10px]">{labels[k] ?? k}</div>
-                          <div className="font-bold text-slate-800">{v}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {(preview.sellerRating || preview.orderCount || preview.trendScore != null) && (
-                  <div className="flex gap-3 mt-2 text-slate-500">
-                    {preview.sellerRating != null && <span>Seller: <strong className="text-slate-700">{preview.sellerRating.toFixed(1)}★</strong></span>}
-                    {preview.orderCount != null && <span>Orders: <strong className="text-slate-700">{preview.orderCount.toLocaleString()}</strong></span>}
-                    {preview.trendScore != null && <span>Trend: <strong className="text-slate-700">{preview.trendScore.toFixed(0)}/100</strong></span>}
-                    {preview.keyword && <span>Keyword: <strong className="text-slate-700">{preview.keyword}</strong></span>}
-                  </div>
-                )}
+            {/* ── Live AI Score panel ────────────────────────────────────────── */}
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-slate-700">AI Winning Score</span>
+                <AiScoreBadge score={liveScore.score} breakdown={liveScore.breakdown} />
               </div>
-            )}
+
+              {/* Breakdown tiles */}
+              <div className="grid grid-cols-5 gap-1 text-center">
+                {Object.entries(liveScore.breakdown).map(([k, v]) => (
+                  <div key={k} className="bg-white rounded border border-slate-100 p-1.5">
+                    <div className="text-slate-400 text-[10px]">{SCORE_LABELS[k] ?? k}</div>
+                    <div className="font-bold text-slate-800">{v}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Editable supplier signals */}
+              <div className="border-t border-slate-200 pt-3">
+                <p className="text-slate-500 mb-2">
+                  Supplier signals affect <span className="font-medium text-slate-700">Supplier</span> and <span className="font-medium text-slate-700">Saturation</span> scores.{' '}
+                  <span className="text-indigo-600">Check the AliExpress product page for these values.</span>
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-medium text-slate-500 mb-1">
+                      Seller Rating (0–5 ★)
+                    </label>
+                    <input
+                      type="number" min={0} max={5} step={0.1}
+                      value={sellerRating}
+                      onChange={e => setSellerRating(Math.min(5, Math.max(0, Number(e.target.value))))}
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-indigo-400"
+                      placeholder="e.g. 4.8"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-slate-500 mb-1">
+                      Orders Sold (total)
+                    </label>
+                    <input
+                      type="number" min={0} step={1}
+                      value={orderCount}
+                      onChange={e => setOrderCount(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-indigo-400"
+                      placeholder="e.g. 5000"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {saveError && (
               <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
@@ -796,7 +865,6 @@ function ImportModal({ categories, onClose, onSaved }: ImportModalProps) {
               <label className={labelCls}>Image URLs (one per line) — {form.imagesRaw.split('\n').filter(Boolean).length} extracted</label>
               <textarea rows={4} value={form.imagesRaw} onChange={e => setF('imagesRaw', e.target.value)}
                 className={`${inputCls} resize-none font-mono text-xs`} />
-              {/* Thumbnail preview */}
               {form.imagesRaw.split('\n').filter(Boolean).length > 0 && (
                 <div className="flex gap-2 mt-2 flex-wrap">
                   {form.imagesRaw.split('\n').filter(Boolean).slice(0, 5).map((img, i) => (
