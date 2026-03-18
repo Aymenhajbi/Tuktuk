@@ -1,11 +1,11 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle, Loader2, XCircle } from 'lucide-react';
 import { api, Order } from '../../../lib/api';
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const params = useSearchParams();
   const sessionId = params.get('session_id');
 
@@ -60,5 +60,18 @@ export default function PaymentSuccessPage() {
         <Link href="/products" className="border border-gray-300 text-gray-600 font-bold px-6 py-3 rounded-full hover:bg-gray-50">Continue Shopping</Link>
       </div>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <Loader2 size={48} className="text-orange-500 animate-spin" />
+        <p className="text-gray-500">Confirming your payment…</p>
+      </div>
+    }>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 }
