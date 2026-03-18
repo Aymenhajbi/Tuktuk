@@ -25,6 +25,11 @@ function CheckoutContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Guard: if the session expired between page load and submit, redirect to login
+    if (!localStorage.getItem('access_token')) {
+      router.push('/auth?redirect=/checkout');
+      return;
+    }
     setLoading(true);
     try {
       // 1. Create the order (status: PENDING)

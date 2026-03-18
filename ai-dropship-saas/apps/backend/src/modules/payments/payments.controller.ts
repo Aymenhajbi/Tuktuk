@@ -14,6 +14,7 @@ const STOREFRONT = process.env.STOREFRONT_URL ?? 'http://localhost:3000';
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
+  @Public()
   @Post('create-checkout-session')
   createCheckoutSession(@Body() dto: CreateCheckoutSessionDto) {
     const successUrl = dto.successUrl ?? `${STOREFRONT}/payment/success`;

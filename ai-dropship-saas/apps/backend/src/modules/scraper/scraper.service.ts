@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { readFileSync, writeFileSync } from 'fs';
 
 export interface CJProduct {
   cjId: string;
@@ -58,27 +59,47 @@ interface CJDetailResponse {
 // ── Scraper Service ───────────────────────────────────────────────────────────
 
 @Injectable()
-export class ScraperService {
+export class ScraperService implements OnModuleInit {
   private readonly logger = new Logger(ScraperService.name);
   private tokenCache: { token: string; expiresAt: number } | null = null;
+  private tokenRefreshPromise: Promise<string> | null = null;
+  private readonly TOKEN_FILE = '/tmp/cj-token.json';
 
   // ── Credentials ─────────────────────────────────────────────────────────────
 
-  private get email()        { return process.env.CJ_EMAIL   ?? ''; }
   private get apiKey()       { return process.env.CJ_API_KEY ?? ''; }
-  private get isConfigured() { return !!(this.email && this.apiKey); }
+  private get isConfigured() { return !!this.apiKey; }
 
-  // ── Token management (cached 23 h) ───────────────────────────────────────────
+  // ── Lifecycle ────────────────────────────────────────────────────────────────
 
-  private async getToken(): Promise<string> {
-    if (this.tokenCache && Date.now() < this.tokenCache.expiresAt) {
-      return this.tokenCache.token;
+  onModuleInit() {
+    try {
+      const raw = readFileSync(this.TOKEN_FILE, 'utf8');
+      const saved = JSON.parse(raw) as { token: string; expiresAt: number };
+      if (saved.token && saved.expiresAt > Date.now()) {
+        this.tokenCache = saved;
+        this.logger.log(`CJ token loaded from disk (expires ${new Date(saved.expiresAt).toISOString()})`);
+      }
+    } catch {
+      // No file yet — will authenticate on first search
     }
+  }
 
+  // ── Token management (cached 14 days — token valid 15 days) ─────────────────
+
+  private saveTokenToDisk(cache: { token: string; expiresAt: number }) {
+    try {
+      writeFileSync(this.TOKEN_FILE, JSON.stringify(cache), 'utf8');
+    } catch (err) {
+      this.logger.warn(`Could not persist CJ token to disk: ${(err as Error).message}`);
+    }
+  }
+
+  private async fetchNewToken(): Promise<string> {
     const res = await fetch(`${CJ_API}/authentication/getAccessToken`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: this.email, password: this.apiKey }),
+      body: JSON.stringify({ apiKey: this.apiKey }),
     });
 
     const json = await res.json() as CJTokenResponse;
@@ -86,12 +107,31 @@ export class ScraperService {
       throw new Error(`CJ auth failed: ${json.message}`);
     }
 
-    this.tokenCache = {
+    const cache = {
       token: json.data.accessToken,
-      expiresAt: Date.now() + 23 * 60 * 60 * 1000,
+      expiresAt: Date.now() + 14 * 24 * 60 * 60 * 1000, // cache 14d (token valid 15d)
     };
-    this.logger.log('CJ Dropshipping: access token refreshed');
-    return this.tokenCache.token;
+    this.tokenCache = cache;
+    this.saveTokenToDisk(cache);
+    this.logger.log('CJ Dropshipping: access token refreshed and persisted');
+    return cache.token;
+  }
+
+  private async getToken(): Promise<string> {
+    // Return cached token if still valid
+    if (this.tokenCache && Date.now() < this.tokenCache.expiresAt) {
+      return this.tokenCache.token;
+    }
+
+    // Mutex: if a refresh is already in flight, wait for it instead of making a second auth call
+    if (this.tokenRefreshPromise) {
+      return this.tokenRefreshPromise;
+    }
+
+    this.tokenRefreshPromise = this.fetchNewToken().finally(() => {
+      this.tokenRefreshPromise = null;
+    });
+    return this.tokenRefreshPromise;
   }
 
   // ── Authenticated GET helper ─────────────────────────────────────────────────
@@ -169,17 +209,15 @@ export class ScraperService {
 
   async searchProducts(keyword: string, warehouse?: string): Promise<{ products: CJProduct[]; total: number }> {
     if (!this.isConfigured) {
-      this.logger.warn('CJ credentials not configured (CJ_EMAIL / CJ_API_KEY) — using mock catalogue');
+      this.logger.warn('CJ_API_KEY not configured — using mock catalogue');
       return this.mockSearch(keyword, warehouse);
     }
 
     try {
       const params: Record<string, string | number> = {
-        keyword: keyword.trim(),
+        productNameEn: keyword.trim(),
         pageNum:  1,
         pageSize: 30,
-        sortProp: 'orders',   // sort by popularity
-        sortType: 'DESC',
       };
 
       // Map our warehouse labels to CJ country codes
@@ -192,8 +230,13 @@ export class ScraperService {
       const list  = data?.list ?? [];
       const total = data?.total ?? list.length;
 
+      // Resolve the fallback warehouse code (never pass UI filter words as country codes)
+      const fallbackWh = (warehouse && warehouse !== 'all' && warehouse !== 'oversea')
+        ? warehouse   // real country code like 'CN', 'US', 'DE'
+        : 'CN';       // default
+
       // Map and optionally filter oversea products
-      let products = list.map(p => this.mapProduct(p, warehouse === 'oversea' ? 'CN' : (warehouse ?? 'CN')));
+      let products = list.map(p => this.mapProduct(p, fallbackWh));
 
       if (warehouse === 'oversea') {
         // Keep only products that have a non-CN warehouse available

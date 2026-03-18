@@ -103,7 +103,7 @@ export const api = {
 
   // Payments
   createCheckoutSession: (orderId: string) =>
-    req<{ url: string; sessionId: string }>('POST', '/payments/create-checkout-session', { orderId }),
+    req<{ url: string; sessionId: string }>('POST', '/payments/create-checkout-session', { orderId }, true),
   verifySession: (sessionId: string) =>
     req<Order | null>('GET', `/payments/verify?session_id=${encodeURIComponent(sessionId)}`),
 };

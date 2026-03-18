@@ -12,9 +12,8 @@ class OrderItemDto {
 }
 
 export class CreateOrderDto {
-  @IsString()
-  @IsNotEmpty()
-  customerId!: string;
+  // customerId is set server-side from the JWT — not accepted from the client
+  customerId?: string;
 
   @IsString()
   @IsNotEmpty()

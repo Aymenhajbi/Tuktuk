@@ -73,6 +73,8 @@ export class ProductsController {
     @Body() dto: CreateOrderDto,
     @GetUser() user: { sub: string; email: string },
   ) {
+    // Derive customerId from the verified JWT — never trust client-supplied value
+    dto.customerId = user.sub;
     return this.productsService.createOrder(dto, user.sub, user.email);
   }
 
