@@ -393,9 +393,11 @@ function CJSearchModal({ categories, onClose, onSaved }: CJModalProps) {
               />
               <select value={warehouse} onChange={e => setWarehouse(e.target.value)}
                 className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
-                <option value="oversea">UAE Warehouse (3-7d)</option>
-                <option value="CN">China Warehouse (7-14d)</option>
-                <option value="US">US Warehouse</option>
+                <option value="oversea">Overseas (non-CN, faster)</option>
+                <option value="CN">China (7-14d)</option>
+                <option value="US">USA (10-18d)</option>
+                <option value="DE">Germany (7-12d)</option>
+                <option value="GB">UK (7-12d)</option>
                 <option value="all">All Warehouses</option>
               </select>
               <button type="submit" disabled={searching}
@@ -434,7 +436,7 @@ function CJSearchModal({ categories, onClose, onSaved }: CJModalProps) {
                         <span className="text-sm font-bold text-indigo-600">AED {p.suggestedPriceAED}</span>
                       </div>
                       <div className="flex items-center justify-between mb-3">
-                        <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-medium">{p.shippingDays}d · {p.warehouse}</span>
+                        <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-medium">{p.shippingDays}d · {p.warehouseLabel || p.warehouse}</span>
                         <span className="text-[10px] text-slate-500">★ {p.rating}</span>
                       </div>
                       <button onClick={() => handleSelectProduct(p)}
@@ -453,7 +455,7 @@ function CJSearchModal({ categories, onClose, onSaved }: CJModalProps) {
         {form && selected && (
           <form onSubmit={handleSave} className="p-6 space-y-4">
             <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 text-xs text-indigo-800 flex items-center justify-between">
-              <span>CJ ID: <strong>{selected.cjId}</strong> · Supplier <strong>${selected.supplierPriceUSD} USD</strong> → <strong>AED {selected.suggestedPriceAED}</strong> retail (2.5×)</span>
+              <span>CJ ID: <strong>{selected.cjId}</strong> · Supplier <strong>${selected.supplierPriceUSD} USD</strong> → <strong>AED {selected.suggestedPriceAED}</strong> (2.5×) · {selected.shippingDays}d from {selected.warehouseLabel || selected.warehouse}</span>
               <button type="button" onClick={() => setForm(null)} className="text-indigo-600 hover:underline font-medium">Back to results</button>
             </div>
 

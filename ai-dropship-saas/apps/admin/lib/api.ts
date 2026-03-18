@@ -89,7 +89,8 @@ export interface CJProduct {
   supplierPriceUSD: number;
   suggestedPriceAED: number;
   categoryName: string;
-  warehouse: string;
+  warehouse: string;       // country code e.g. 'CN', 'US'
+  warehouseLabel: string;  // human-readable e.g. 'China', 'USA'
   shippingDays: string;
   rating: number;
 }
