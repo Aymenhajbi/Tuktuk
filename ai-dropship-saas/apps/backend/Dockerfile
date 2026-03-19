@@ -37,8 +37,9 @@ COPY ai-dropship-saas/packages ./packages
 RUN npm ci --omit=dev --ignore-scripts
 
 # Copy Prisma engine binaries and generated client from builder
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+# (generate runs in workspace context so output lands in apps/backend/node_modules)
+COPY --from=builder /app/apps/backend/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/apps/backend/node_modules/@prisma/client ./node_modules/@prisma/client
 
 # Copy compiled app and prisma schema/migrations
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist

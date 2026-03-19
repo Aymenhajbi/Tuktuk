@@ -1,4 +1,8 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+// Server-side fetches (SSR/RSC) use the internal Docker network URL;
+// client-side fetches use the browser-accessible URL.
+const BASE = typeof window === 'undefined'
+  ? (process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001')
+  : (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001');
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;

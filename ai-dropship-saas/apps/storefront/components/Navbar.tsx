@@ -1,13 +1,14 @@
 'use client';
 import Link from 'next/link';
-import { useCart } from '../lib/store';
 import { useAuth } from '../lib/auth';
 import { ShoppingCart, User, Search, LogOut, LogIn } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+
+const CartBadge = dynamic(() => import('./CartBadge'), { ssr: false });
 
 export default function Navbar() {
-  const count = useCart(s => s.count());
   const { user, logout } = useAuth();
   const [q, setQ] = useState('');
   const router = useRouter();
@@ -59,9 +60,7 @@ export default function Navbar() {
             )}
             <Link href="/cart" className="relative flex items-center gap-1 text-sm text-gray-600 hover:text-orange-500">
               <ShoppingCart size={20} />
-              {count > 0 && (
-                <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">{count}</span>
-              )}
+              <CartBadge />
               <span className="hidden sm:inline">Cart</span>
             </Link>
           </nav>
