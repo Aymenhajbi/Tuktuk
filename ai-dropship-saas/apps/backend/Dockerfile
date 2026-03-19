@@ -36,6 +36,10 @@ COPY ai-dropship-saas/apps/backend/package.json ./apps/backend/
 COPY ai-dropship-saas/packages ./packages
 RUN npm ci --omit=dev --ignore-scripts
 
+# Copy Prisma CLI from builder (it's a devDep, omitted by --omit=dev but needed for migrate deploy)
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+
 # Copy Prisma engine binaries and generated client from builder
 # (generate runs in workspace context so output lands in apps/backend/node_modules)
 COPY --from=builder /app/apps/backend/node_modules/.prisma ./node_modules/.prisma
