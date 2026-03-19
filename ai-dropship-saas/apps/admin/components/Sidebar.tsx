@@ -12,12 +12,14 @@ import {
   Activity,
   Package,
   ShoppingBag,
+  Tag,
 } from 'lucide-react';
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { href: '/products', label: 'Products', Icon: Package },
   { href: '/orders', label: 'Orders', Icon: ShoppingBag },
+  { href: '/promo-codes', label: 'Promo Codes', Icon: Tag },
   { href: '/winning-products', label: 'Winning Products', Icon: Trophy },
   { href: '/competitor-radar', label: 'Competitor Radar', Icon: Radar },
   { href: '/tiktok-analyzer', label: 'TikTok Analyzer', Icon: TrendingUp },

@@ -13,6 +13,7 @@ import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ScraperModule } from './modules/scraper/scraper.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { PromoCodesModule } from './modules/promo-codes/promo-codes.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
     ProductsModule,
     ScraperModule,
     PaymentsModule,
+    PromoCodesModule,
   ],
   controllers: [HealthController],
   providers: [RealtimeGateway],

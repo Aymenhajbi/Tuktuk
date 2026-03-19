@@ -3,10 +3,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { QueryProductsDto } from './dto/query-products.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { PromoCodesService } from '../promo-codes/promo-codes.service';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly promoCodes: PromoCodesService,
+  ) {}
 
   async findAll(query: QueryProductsDto) {
     const {
@@ -122,10 +126,16 @@ export class ProductsService {
     const products = await this.prisma.product.findMany({ where: { id: { in: productIds } } });
     const productMap = new Map(products.map(p => [p.id, p]));
 
-    const total = dto.items.reduce((sum, item) => {
+    const subtotal = dto.items.reduce((sum, item) => {
       const p = productMap.get(item.productId);
       return sum + (p ? (p.salePrice ?? p.price) * item.quantity : 0);
     }, 0);
+
+    let total = subtotal;
+    if (dto.promoCode) {
+      const { discountAmount } = await this.promoCodes.applyToOrder(dto.promoCode, subtotal);
+      total = Math.max(0, subtotal - discountAmount);
+    }
 
     return this.prisma.order.create({
       data: {

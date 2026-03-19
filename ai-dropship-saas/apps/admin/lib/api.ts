@@ -191,6 +191,29 @@ export interface QueueStatusResult {
   timestamp: string;
 }
 
+export interface PromoCode {
+  id: string;
+  code: string;
+  discountType: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  discountValue: number;
+  minOrderAmount: number | null;
+  maxUses: number | null;
+  usedCount: number;
+  expiresAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CreatePromoCodeBody {
+  code: string;
+  discountType: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  discountValue: number;
+  minOrderAmount?: number;
+  maxUses?: number;
+  expiresAt?: string;
+  isActive?: boolean;
+}
+
 export const api = {
   // Products CRUD
   listProducts: (params?: Record<string, string | number | boolean>) => {
@@ -238,4 +261,10 @@ export const api = {
   listOrders: () => req<AdminOrder[]>('GET', '/orders'),
   updateOrderStatus: (id: string, status: AdminOrder['status']) =>
     req<AdminOrder>('PUT', `/orders/${id}/status`, { status }),
+
+  // Promo Codes
+  listPromoCodes: () => req<PromoCode[]>('GET', '/promo-codes'),
+  createPromoCode: (body: CreatePromoCodeBody) => req<PromoCode>('POST', '/promo-codes', body),
+  updatePromoCode: (id: string, body: Partial<CreatePromoCodeBody>) => req<PromoCode>('PUT', `/promo-codes/${id}`, body),
+  deletePromoCode: (id: string) => req('DELETE', `/promo-codes/${id}`),
 };

@@ -97,8 +97,10 @@ export const api = {
   me: () => req<User>('GET', '/auth/me', undefined, true),
 
   // Protected
-  createOrder: (body: { address: string; items: Array<{ productId: string; quantity: number }> }) =>
+  createOrder: (body: { address: string; items: Array<{ productId: string; quantity: number }>; promoCode?: string }) =>
     req<Order>('POST', '/orders', body, true),
+  validatePromoCode: (code: string, orderTotal: number) =>
+    req<{ discountAmount: number; promoCodeId: string }>('POST', '/promo-codes/validate', { code, orderTotal }),
   getOrders: () => req<Order[]>('GET', '/orders', undefined, true),
 
   // Payments

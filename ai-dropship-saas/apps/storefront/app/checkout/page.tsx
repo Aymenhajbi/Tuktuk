@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCart } from '../../lib/store';
 import { api } from '../../lib/api';
-import { CheckCircle, CreditCard, Truck } from 'lucide-react';
+import { CheckCircle, CreditCard, Truck, Tag, X } from 'lucide-react';
 import RequireAuth from '../../components/RequireAuth';
 import { useAuth } from '../../lib/auth';
 
@@ -21,7 +21,36 @@ function CheckoutContent() {
   const [success, setSuccess] = useState(false);
   const [orderId, setOrderId] = useState('');
 
+  // Promo code state
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountAmount: number } | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState('');
+
+  const discount = appliedPromo?.discountAmount ?? 0;
+  const orderTotal = Math.max(0, cartTotal + delivery - discount);
+
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const applyPromo = async () => {
+    if (!promoInput.trim()) return;
+    setPromoLoading(true);
+    setPromoError('');
+    try {
+      const result = await api.validatePromoCode(promoInput.trim(), cartTotal + delivery);
+      setAppliedPromo({ code: promoInput.trim().toUpperCase(), discountAmount: result.discountAmount });
+      setPromoInput('');
+    } catch (err) {
+      setPromoError((err as Error).message.replace(/^\d+:\s*/, '').replace(/^.*?:\s*/, ''));
+    } finally {
+      setPromoLoading(false);
+    }
+  };
+
+  const removePromo = () => {
+    setAppliedPromo(null);
+    setPromoError('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +65,7 @@ function CheckoutContent() {
       const order = await api.createOrder({
         address: `${form.address}, ${form.city}, ${form.country} ${form.zip}`,
         items: items.map(i => ({ productId: i.product.id, quantity: i.quantity })),
+        promoCode: appliedPromo?.code,
       });
       // 2. Create Stripe Checkout session and redirect
       const { url } = await api.createCheckoutSession(order.id);
@@ -112,14 +142,47 @@ function CheckoutContent() {
 
           <button type="submit" disabled={loading}
             className="w-full bg-orange-500 text-white font-bold py-3.5 rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50">
-            {loading ? 'Redirecting to Stripe…' : `Pay with Stripe — AED ${(cartTotal + delivery).toFixed(2)}`}
+            {loading ? 'Redirecting to Stripe…' : `Pay with Stripe — AED ${orderTotal.toFixed(2)}`}
           </button>
         </form>
 
         <div className="lg:col-span-2">
           <div className="bg-white rounded-xl border border-gray-100 p-5 sticky top-20">
             <h2 className="font-bold text-gray-800 mb-4">Order Summary</h2>
-            <div className="space-y-3 mb-4 max-h-72 overflow-y-auto">
+
+            {/* Promo code input */}
+            <div className="mb-4">
+              {appliedPromo ? (
+                <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2 text-green-700">
+                    <Tag size={14} />
+                    <span className="font-mono font-bold">{appliedPromo.code}</span>
+                    <span className="text-green-600">−AED {appliedPromo.discountAmount.toFixed(2)}</span>
+                  </div>
+                  <button onClick={removePromo} className="text-green-400 hover:text-green-700"><X size={14} /></button>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-xs text-gray-400 mb-1.5">Have a promo code?</p>
+                  <div className="flex gap-2">
+                    <input
+                      value={promoInput}
+                      onChange={e => { setPromoInput(e.target.value.toUpperCase()); setPromoError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), applyPromo())}
+                      placeholder="ENTER CODE"
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-mono uppercase focus:outline-none focus:border-orange-400"
+                    />
+                    <button type="button" onClick={applyPromo} disabled={promoLoading || !promoInput.trim()}
+                      className="px-3 py-1.5 bg-gray-800 text-white text-xs font-medium rounded-lg hover:bg-gray-900 disabled:opacity-40">
+                      {promoLoading ? '…' : 'Apply'}
+                    </button>
+                  </div>
+                  {promoError && <p className="text-red-500 text-xs mt-1">{promoError}</p>}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
               {items.map(({ product: p, quantity }) => (
                 <div key={p.id} className="flex items-center gap-3">
                   <div className="relative w-12 h-12 bg-gray-50 rounded-lg overflow-hidden shrink-0">
@@ -136,8 +199,14 @@ function CheckoutContent() {
             <div className="border-t border-gray-100 pt-4 space-y-2 text-sm">
               <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>AED {cartTotal.toFixed(2)}</span></div>
               <div className="flex justify-between text-gray-600"><span>Delivery</span><span className={delivery === 0 ? 'text-green-600 font-medium' : ''}>{delivery === 0 ? 'FREE' : `AED ${delivery.toFixed(2)}`}</span></div>
+              {appliedPromo && (
+                <div className="flex justify-between text-green-600">
+                  <span className="flex items-center gap-1"><Tag size={12} /> Discount</span>
+                  <span>−AED {appliedPromo.discountAmount.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-bold text-base pt-2 border-t border-gray-100">
-                <span>Total</span><span className="text-orange-500">AED {(cartTotal + delivery).toFixed(2)}</span>
+                <span>Total</span><span className="text-orange-500">AED {orderTotal.toFixed(2)}</span>
               </div>
             </div>
           </div>
