@@ -53,5 +53,5 @@ EXPOSE 3001
 
 ENTRYPOINT ["dumb-init", "--"]
 
-# Run migrations then start the server
-CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy --schema=apps/backend/prisma/schema.prisma && node apps/backend/dist/apps/backend/src/main.js"]
+# Run migrations (log error but don't block startup), then start the server
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy --schema=apps/backend/prisma/schema.prisma 2>&1 || echo 'WARNING: prisma migrate deploy failed — skipping'; exec node apps/backend/dist/apps/backend/src/main.js"]
